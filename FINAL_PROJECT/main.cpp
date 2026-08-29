@@ -1,5 +1,45 @@
 #include <GL/glut.h>
 
+
+// 1. Expressway Cars
+struct Car {
+    float x;
+    float y;
+    float speed;
+    int dir;
+    float r, g, b;
+};
+
+const int NUM_CARS = 4;
+Car cars[NUM_CARS] = {
+    {1280, 371, 2.5f, -1, 0.8f, 0.2f, 0.2f}, // Going Left
+    {-100, 371, 3.2f,  1, 0.2f, 0.3f, 0.8f}, // Going Right
+    {2080, 371, 2.8f, -1, 0.9f, 0.9f, 0.9f}, // Going Left
+    {-400, 371, 3.5f,  1, 0.8f, 0.4f, 0.1f}  // Going Right
+};
+
+// 2. Left Road cars
+struct LeftRoadCar {
+    float t;       // 1.0 = Foreground, 0.0 = Horizon
+    float speed;
+    int dir;       // 1 = Driving away, -1 = Driving towards
+    float r, g, b;
+};
+
+const int NUM_LEFT_CARS = 6;
+LeftRoadCar leftCars[NUM_LEFT_CARS] = {
+    // Right Lane (Driving Away)
+    {0.9f, 0.012f,  1, 0.8f, 0.2f, 0.2f}, // Red
+    {0.5f, 0.012f,  1, 0.2f, 0.3f, 0.8f}, // Blue
+    {0.1f, 0.012f,  1, 0.9f, 0.9f, 0.9f}, // White
+
+    // Left Lane (Driving Towards Viewer)
+    {0.1f, 0.012f, -1, 0.8f, 0.8f, 0.2f}, // Yellow
+    {0.5f, 0.012f, -1, 0.2f, 0.8f, 0.2f}, // Green
+    {0.9f, 0.012f, -1, 0.1f, 0.1f, 0.1f}  // Black
+};
+
+
 void drawRectangle(float x1, float y1, float x2, float y2,
                    float r, float g, float b)
 {
@@ -28,7 +68,7 @@ void drawBush(float cx, float cy, float radiusX, float radiusY, float r, float g
         glVertex2f(-1.0f,  1.0f);
     glEnd();
 
-    // Rotated Quad for an octagonal/rounder look
+    // Rotated Quad
     glRotatef(45.0f, 0.0f, 0.0f, 1.0f);
     glBegin(GL_QUADS);
         glVertex2f(-1.0f, -1.0f);
@@ -66,28 +106,93 @@ void drawBackgroundBuildings()
     drawRectangle(1130,300,1280,400,0.71f,0.71f,0.74f);
 }
 
+void drawCars()
+{
+    for(int i = 0; i < NUM_CARS; i++) {
+        drawRectangle(cars[i].x - 1, cars[i].y - 1, cars[i].x + 15, cars[i].y, 0.55f, 0.55f, 0.58f);
+        drawRectangle(cars[i].x, cars[i].y, cars[i].x + 14, cars[i].y + 4, cars[i].r, cars[i].g, cars[i].b);
+        drawRectangle(cars[i].x + 3, cars[i].y + 4, cars[i].x + 11, cars[i].y + 7, 0.7f, 0.8f, 0.9f);
+    }
+}
+
+void drawLeftRoadCars()
+{
+    // Draw in roughly reverse Z-order to prevent clipping
+    for(int pass = 0; pass < 2; pass++) {
+        for(int i = 0; i < NUM_LEFT_CARS; i++) {
+            float t = leftCars[i].t;
+            if(t < 0.0f || t > 1.2f) continue;
+
+            // Pass 0 draws distant cars, Pass 1 draws close cars
+            if ((pass == 0 && t > 0.5f) || (pass == 1 && t <= 0.5f)) continue;
+
+            // Updated Scale: Stays larger for much longer into the distance
+            float scale = 0.25f + 0.75f * t;
+
+            float cx, cy;
+            cy = 300.0f * (1.0f - t);
+
+            if (leftCars[i].dir == 1) {
+                // Right Lane (Driving Away)
+                // Horizon center is 210, Foreground center is 60
+                cx = 210.0f * (1.0f - t) + 60.0f * t;
+            } else {
+                // Left Lane (Driving Towards)
+                // Horizon center is 170, Foreground center is -40
+                cx = 170.0f * (1.0f - t) + (-40.0f) * t;
+            }
+
+            // Base sizes increased significantly
+            float width = 60.0f * scale;
+            float height = 24.0f * scale;
+            float roof = 16.0f * scale;
+
+            // Drop shadow
+            drawRectangle(cx - width/2 - 2*scale, cy - 4*scale, cx + width/2 + 2*scale, cy + 2*scale, 0.4f, 0.4f, 0.42f);
+
+            // Main Body
+            drawRectangle(cx - width/2, cy, cx + width/2, cy + height, leftCars[i].r, leftCars[i].g, leftCars[i].b);
+
+            if (leftCars[i].dir == 1) {
+                // BACK OF CAR (Driving Away)
+                // Back Window
+                drawRectangle(cx - width/2 + 8*scale, cy + height, cx + width/2 - 8*scale, cy + height + roof, 0.2f, 0.2f, 0.25f);
+                // Red Taillights
+                drawRectangle(cx - width/2 + 2*scale, cy + 6*scale, cx - width/2 + 14*scale, cy + 10*scale, 1.0f, 0.0f, 0.0f);
+                drawRectangle(cx + width/2 - 14*scale, cy + 6*scale, cx + width/2 - 2*scale, cy + 10*scale, 1.0f, 0.0f, 0.0f);
+            } else {
+                // FRONT OF CAR (Driving Towards)
+                // Windshield
+                drawRectangle(cx - width/2 + 6*scale, cy + height, cx + width/2 - 6*scale, cy + height + roof, 0.6f, 0.8f, 0.9f);
+                // Headlights
+                drawRectangle(cx - width/2 + 2*scale, cy + 8*scale, cx - width/2 + 14*scale, cy + 14*scale, 1.0f, 0.9f, 0.6f);
+                drawRectangle(cx + width/2 - 14*scale, cy + 8*scale, cx + width/2 - 2*scale, cy + 14*scale, 1.0f, 0.9f, 0.6f);
+                // Front Grille
+                drawRectangle(cx - 10*scale, cy + 4*scale, cx + 10*scale, cy + 10*scale, 0.15f, 0.15f, 0.15f);
+            }
+        }
+    }
+}
+
 void drawElevatedHighway()
 {
-    // Main Highway Deck
     drawRectangle(0, 350, 1280, 370, 0.65f, 0.65f, 0.68f);
 
-    // Pillars
     for(int i = 20; i < 1280; i += 120) {
         drawRectangle(i, 300, i + 15, 350, 0.6f, 0.6f, 0.63f);
     }
 
-    // Distant Lamp Posts (Aligned with pillars)
+    drawCars();
+
     for(int i = 26; i < 1280; i += 120) {
-        // Post
         drawRectangle(i, 370, i + 2, 388, 0.45f, 0.45f, 0.48f);
-        // T-shape lamp head
         drawRectangle(i - 4, 386, i + 6, 388, 0.45f, 0.45f, 0.48f);
     }
 }
 
 void drawRoads()
 {
-    // Right Main Road Only
+    // Right Main Road
     glColor3f(0.45f, 0.45f, 0.45f);
     glBegin(GL_QUADS);
         glVertex2f(940, 0);
@@ -101,10 +206,10 @@ void drawLeftScenery()
 {
     glColor3f(0.48f, 0.48f, 0.48f);
     glBegin(GL_QUADS);
-        glVertex2f(-10, 120);     // Bottom left
-        glVertex2f(100, 0);       // Bottom right
-        glVertex2f(230, 300);     // Top right (horizon)
-        glVertex2f(150, 300);     // Top left (horizon)
+        glVertex2f(-10, 120);
+        glVertex2f(100, 0);
+        glVertex2f(230, 300);
+        glVertex2f(150, 300);
     glEnd();
 }
 
@@ -126,7 +231,7 @@ void drawStraightTrack(float startX, float endX)
     float baseRailThick = 4.0f;
     float endRailThick = 1.0f;
 
-    // 1. Draw Sleepers
+    // Sleepers
     glColor3f(0.3f, 0.25f, 0.2f);
     glBegin(GL_QUADS);
     for (float t = 0; t <= 1.0f; t += 0.04f) {
@@ -145,17 +250,15 @@ void drawStraightTrack(float startX, float endX)
     }
     glEnd();
 
-    // 2. Draw Rails
+    // Rails
     glColor3f(0.2f, 0.2f, 0.25f);
     glBegin(GL_QUADS);
 
-    // Left Rail
     glVertex2f(startX - baseWidth - baseRailThick, 0);
     glVertex2f(startX - baseWidth + baseRailThick, 0);
     glVertex2f(endX - endWidth + endRailThick, 300);
     glVertex2f(endX - endWidth - endRailThick, 300);
 
-    // Right Rail
     glVertex2f(startX + baseWidth - baseRailThick, 0);
     glVertex2f(startX + baseWidth + baseRailThick, 0);
     glVertex2f(endX + endWidth + endRailThick, 300);
@@ -178,20 +281,11 @@ void drawTrackSignal()
     float xCenter = 516.0f;
     float yBase = 120.0f;
 
-    // Angled Tripod Legs
     drawRectangle(xCenter - 6.0f, yBase, xCenter - 2.0f, yBase + 10.0f, 0.45f, 0.45f, 0.45f);
     drawRectangle(xCenter + 2.0f, yBase, xCenter + 6.0f, yBase + 10.0f, 0.45f, 0.45f, 0.45f);
-
-    // Main Vertical Pole
     drawRectangle(xCenter - 2.0f, yBase, xCenter + 2.0f, yBase + 85.0f, 0.5f, 0.5f, 0.5f);
-
-    // Tall Black Signal Box
     drawRectangle(xCenter - 7.0f, yBase + 60.0f, xCenter + 7.0f, yBase + 95.0f, 0.15f, 0.15f, 0.15f);
-
-    // Signal Lights
-    // Red Light
     drawRectangle(xCenter - 2.5f, yBase + 82.0f, xCenter + 2.5f, yBase + 88.0f, 0.9f, 0.2f, 0.2f);
-    // Green Light
     drawRectangle(xCenter - 2.5f, yBase + 68.0f, xCenter + 2.5f, yBase + 74.0f, 0.2f, 0.3f, 0.2f);
 }
 
@@ -208,106 +302,55 @@ void drawLake()
 
 void drawRightRoadLamps()
 {
-
-    // Lamp 1 (Closest)
-    // Pole
     drawRectangle(895.75f, 50.0f, 900.0f, 177.5f, 0.35f, 0.35f, 0.35f);
-    // Arm
     drawRectangle(900.0f, 173.25f, 933.8f, 177.5f, 0.35f, 0.35f, 0.35f);
-    // Light
     drawRectangle(925.3f, 171.125f, 933.8f, 177.5f, 1.0f, 0.9f, 0.6f);
 
-    // Lamp 2
-    // Pole
     drawRectangle(840.8f, 120.0f, 844.0f, 216.0f, 0.35f, 0.35f, 0.35f);
-    // Arm
     drawRectangle(844.0f, 212.8f, 869.2f, 216.0f, 0.35f, 0.35f, 0.35f);
-    // Light
     drawRectangle(862.8f, 211.2f, 869.2f, 216.0f, 1.0f, 0.9f, 0.6f);
 
-    // Lamp 3
-    // Pole
     drawRectangle(793.7f, 180.0f, 796.0f, 249.0f, 0.35f, 0.35f, 0.35f);
-    // Arm
     drawRectangle(796.0f, 246.7f, 813.8f, 249.0f, 0.35f, 0.35f, 0.35f);
-    // Light
     drawRectangle(809.2f, 245.55f, 813.8f, 249.0f, 1.0f, 0.9f, 0.6f);
 
-    // Lamp 4
-    // Pole
     drawRectangle(754.45f, 230.0f, 756.0f, 276.5f, 0.35f, 0.35f, 0.35f);
-    // Arm
     drawRectangle(756.0f, 274.95f, 767.6f, 276.5f, 0.35f, 0.35f, 0.35f);
-    // Light
     drawRectangle(764.5f, 274.175f, 767.6f, 276.5f, 1.0f, 0.9f, 0.6f);
 
-    // Lamp 5
-    // Pole
     drawRectangle(727.0f, 265.0f, 728.0f, 295.8f, 0.35f, 0.35f, 0.35f);
-    // Arm
     drawRectangle(728.0f, 294.8f, 735.3f, 295.8f, 0.35f, 0.35f, 0.35f);
-    // Light
     drawRectangle(733.3f, 294.3f, 735.3f, 295.8f, 1.0f, 0.9f, 0.6f);
 
-    // Lamp 6 (Farthest)
-    // Pole
     drawRectangle(711.275f, 285.0f, 712.0f, 306.75f, 0.35f, 0.35f, 0.35f);
-    // Arm
     drawRectangle(712.0f, 306.025f, 716.85f, 306.75f, 0.35f, 0.35f, 0.35f);
-    // Light
     drawRectangle(715.4f, 305.66f, 716.85f, 306.75f, 1.0f, 0.9f, 0.6f);
 }
 
 void drawLeftRoadLamps()
 {
-
-
-    // Lamp 1 (Closest)
-    // Pole
     drawRectangle(121.6f, 50.0f, 125.85f, 177.5f, 0.35f, 0.35f, 0.35f);
-    // Arm
     drawRectangle(87.8f, 173.25f, 121.6f, 177.5f, 0.35f, 0.35f, 0.35f);
-    // Light
     drawRectangle(87.8f, 171.125f, 96.3f, 177.5f, 1.0f, 0.9f, 0.6f);
 
-    // Lamp 2
-    // Pole
     drawRectangle(152.0f, 120.0f, 155.2f, 216.0f, 0.35f, 0.35f, 0.35f);
-    // Arm
     drawRectangle(126.8f, 212.8f, 152.0f, 216.0f, 0.35f, 0.35f, 0.35f);
-    // Light
     drawRectangle(126.8f, 211.2f, 133.2f, 216.0f, 1.0f, 0.9f, 0.6f);
 
-    // Lamp 3
-    // Pole
     drawRectangle(178.0f, 180.0f, 180.3f, 249.0f, 0.35f, 0.35f, 0.35f);
-    // Arm
     drawRectangle(160.2f, 246.7f, 178.0f, 249.0f, 0.35f, 0.35f, 0.35f);
-    // Light
     drawRectangle(160.2f, 245.55f, 164.8f, 249.0f, 1.0f, 0.9f, 0.6f);
 
-    // Lamp 4
-    // Pole
     drawRectangle(199.6f, 230.0f, 201.15f, 276.5f, 0.35f, 0.35f, 0.35f);
-    // Arm
     drawRectangle(188.0f, 274.95f, 199.6f, 276.5f, 0.35f, 0.35f, 0.35f);
-    // Light
     drawRectangle(188.0f, 274.175f, 191.1f, 276.5f, 1.0f, 0.9f, 0.6f);
 
-    // Lamp 5
-    // Pole
     drawRectangle(214.8f, 265.0f, 215.8f, 295.8f, 0.35f, 0.35f, 0.35f);
-    // Arm
     drawRectangle(207.5f, 294.8f, 214.8f, 295.8f, 0.35f, 0.35f, 0.35f);
-    // Light
     drawRectangle(207.5f, 294.3f, 209.5f, 295.8f, 1.0f, 0.9f, 0.6f);
 
-    // Lamp 6 (Farthest)
-    // Pole
     drawRectangle(223.5f, 285.0f, 224.225f, 306.75f, 0.35f, 0.35f, 0.35f);
-    // Arm
     drawRectangle(218.65f, 306.025f, 223.5f, 306.75f, 0.35f, 0.35f, 0.35f);
-    // Light
     drawRectangle(218.65f, 305.66f, 220.1f, 306.75f, 1.0f, 0.9f, 0.6f);
 }
 
@@ -338,8 +381,7 @@ void drawFoliage()
     drawBush(80, 60, 60, 55, 0.14f, 0.36f, 0.14f);
     drawBush(140, 40, 55, 50, 0.12f, 0.33f, 0.12f);
 
-
-    // Main line
+    // 3. Separator: Left Road <-> Train Tracks
     drawBush(140, 90, 45, 50, 0.16f, 0.39f, 0.16f);
     drawBush(165, 130, 40, 45, 0.13f, 0.35f, 0.13f);
     drawBush(190, 170, 35, 40, 0.15f, 0.38f, 0.15f);
@@ -348,7 +390,6 @@ void drawFoliage()
     drawBush(275, 270, 20, 25, 0.16f, 0.39f, 0.16f);
     drawBush(300, 290, 15, 18, 0.13f, 0.35f, 0.13f);
 
-    // Secondary line
     drawBush(180, 100, 40, 45, 0.15f, 0.38f, 0.15f);
     drawBush(205, 145, 35, 40, 0.14f, 0.36f, 0.14f);
     drawBush(235, 185, 30, 35, 0.16f, 0.39f, 0.16f);
@@ -356,8 +397,7 @@ void drawFoliage()
     drawBush(290, 260, 20, 22, 0.15f, 0.38f, 0.15f);
     drawBush(315, 285, 15, 15, 0.14f, 0.36f, 0.14f);
 
-
-    // Main thick line
+    // 4. Separator: Train Tracks <-> Right Road
     drawBush(935, 10,  45, 65, 0.13f, 0.35f, 0.13f);
     drawBush(910, 35,  45, 60, 0.16f, 0.39f, 0.16f);
     drawBush(875, 70,  40, 55, 0.14f, 0.36f, 0.14f);
@@ -370,7 +410,6 @@ void drawFoliage()
     drawBush(695, 275, 18, 22, 0.13f, 0.35f, 0.13f);
     drawBush(680, 288, 14, 18, 0.15f, 0.38f, 0.15f);
 
-    // Secondary inner
     drawBush(940, 20,  45, 55, 0.15f, 0.38f, 0.15f);
     drawBush(910, 50,  42, 50, 0.12f, 0.34f, 0.12f);
     drawBush(880, 90,  38, 45, 0.17f, 0.40f, 0.17f);
@@ -423,6 +462,36 @@ void init()
     gluOrtho2D(0, 1280, 0, 720);
 }
 
+void timer(int value)
+{
+    // Expressway Cars
+    for (int i = 0; i < NUM_CARS; i++) {
+        cars[i].x += cars[i].speed * cars[i].dir;
+
+        if (cars[i].dir == -1 && cars[i].x < -100) {
+            cars[i].x = 1350; // Respawn on the right
+        } else if (cars[i].dir == 1 && cars[i].x > 1380) {
+            cars[i].x = -100; // Respawn on the left
+        }
+    }
+
+
+    for (int i = 0; i < NUM_LEFT_CARS; i++) {
+        if (leftCars[i].dir == 1) {
+            // Driving away (decrease t)
+            leftCars[i].t -= leftCars[i].speed * (leftCars[i].t + 0.3f);
+            if (leftCars[i].t < -0.1f) leftCars[i].t = 1.2f; // Respawn front
+        } else {
+            // Driving towards (increase t)
+            leftCars[i].t += leftCars[i].speed * (leftCars[i].t + 0.3f);
+            if (leftCars[i].t > 1.2f) leftCars[i].t = -0.1f; // Respawn back
+        }
+    }
+
+    glutPostRedisplay();
+    glutTimerFunc(30, timer, 0);
+}
+
 void display()
 {
     glClear(GL_COLOR_BUFFER_BIT);
@@ -443,6 +512,9 @@ void display()
 
     drawLeftScenery();
 
+    // Draw Perspective Animated Cars on the left road
+    drawLeftRoadCars();
+
     // Lake Layer
     drawLake();
 
@@ -453,18 +525,22 @@ void display()
     // Foliage Layer covers the bases
     drawFoliage();
 
-    glFlush();
+    // Swap buffers for smooth animation
+    glutSwapBuffers();
 }
 
 int main(int argc, char **argv)
 {
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(1280, 720);
     glutCreateWindow("TrainTracks");
 
     init();
     glutDisplayFunc(display);
+
+    glutTimerFunc(30, timer, 0);
+
     glutMainLoop();
 
     return 0;
