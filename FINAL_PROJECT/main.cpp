@@ -28,12 +28,12 @@ struct LeftRoadCar {
 
 const int NUM_LEFT_CARS = 6;
 LeftRoadCar leftCars[NUM_LEFT_CARS] = {
-    // Right Lane (Driving Away)
+    // Right Lane
     {0.9f, 0.012f,  1, 0.8f, 0.2f, 0.2f}, // Red
     {0.5f, 0.012f,  1, 0.2f, 0.3f, 0.8f}, // Blue
     {0.1f, 0.012f,  1, 0.9f, 0.9f, 0.9f}, // White
 
-    // Left Lane (Driving Towards Viewer)
+    // Left Lane
     {0.1f, 0.012f, -1, 0.8f, 0.8f, 0.2f}, // Yellow
     {0.5f, 0.012f, -1, 0.2f, 0.8f, 0.2f}, // Green
     {0.9f, 0.012f, -1, 0.1f, 0.1f, 0.1f}  // Black
@@ -117,16 +117,13 @@ void drawCars()
 
 void drawLeftRoadCars()
 {
-    // Draw in roughly reverse Z-order to prevent clipping
     for(int pass = 0; pass < 2; pass++) {
         for(int i = 0; i < NUM_LEFT_CARS; i++) {
             float t = leftCars[i].t;
             if(t < 0.0f || t > 1.2f) continue;
 
-            // Pass 0 draws distant cars, Pass 1 draws close cars
             if ((pass == 0 && t > 0.5f) || (pass == 1 && t <= 0.5f)) continue;
 
-            // Updated Scale: Stays larger for much longer into the distance
             float scale = 0.25f + 0.75f * t;
 
             float cx, cy;
@@ -134,11 +131,11 @@ void drawLeftRoadCars()
 
             if (leftCars[i].dir == 1) {
                 // Right Lane (Driving Away)
-                // Horizon center is 210, Foreground center is 60
+
                 cx = 210.0f * (1.0f - t) + 60.0f * t;
             } else {
                 // Left Lane (Driving Towards)
-                // Horizon center is 170, Foreground center is -40
+
                 cx = 170.0f * (1.0f - t) + (-40.0f) * t;
             }
 
@@ -154,14 +151,14 @@ void drawLeftRoadCars()
             drawRectangle(cx - width/2, cy, cx + width/2, cy + height, leftCars[i].r, leftCars[i].g, leftCars[i].b);
 
             if (leftCars[i].dir == 1) {
-                // BACK OF CAR (Driving Away)
+                // BACK OF CAR
                 // Back Window
                 drawRectangle(cx - width/2 + 8*scale, cy + height, cx + width/2 - 8*scale, cy + height + roof, 0.2f, 0.2f, 0.25f);
                 // Red Taillights
                 drawRectangle(cx - width/2 + 2*scale, cy + 6*scale, cx - width/2 + 14*scale, cy + 10*scale, 1.0f, 0.0f, 0.0f);
                 drawRectangle(cx + width/2 - 14*scale, cy + 6*scale, cx + width/2 - 2*scale, cy + 10*scale, 1.0f, 0.0f, 0.0f);
             } else {
-                // FRONT OF CAR (Driving Towards)
+                // FRONT OF CAR
                 // Windshield
                 drawRectangle(cx - width/2 + 6*scale, cy + height, cx + width/2 - 6*scale, cy + height + roof, 0.6f, 0.8f, 0.9f);
                 // Headlights
@@ -356,7 +353,6 @@ void drawLeftRoadLamps()
 
 void drawFoliage()
 {
-    // 1. New Foliage Block: Filling the top-left space behind the road
     drawBush(10, 290, 45, 30, 0.14f, 0.36f, 0.14f);
     drawBush(60, 285, 40, 25, 0.12f, 0.33f, 0.12f);
     drawBush(110, 295, 35, 20, 0.15f, 0.38f, 0.15f);
@@ -381,7 +377,7 @@ void drawFoliage()
     drawBush(80, 60, 60, 55, 0.14f, 0.36f, 0.14f);
     drawBush(140, 40, 55, 50, 0.12f, 0.33f, 0.12f);
 
-    // 3. Separator: Left Road <-> Train Tracks
+    // 3. Separator
     drawBush(140, 90, 45, 50, 0.16f, 0.39f, 0.16f);
     drawBush(165, 130, 40, 45, 0.13f, 0.35f, 0.13f);
     drawBush(190, 170, 35, 40, 0.15f, 0.38f, 0.15f);
@@ -397,7 +393,7 @@ void drawFoliage()
     drawBush(290, 260, 20, 22, 0.15f, 0.38f, 0.15f);
     drawBush(315, 285, 15, 15, 0.14f, 0.36f, 0.14f);
 
-    // 4. Separator: Train Tracks <-> Right Road
+    // 4. Separator
     drawBush(935, 10,  45, 65, 0.13f, 0.35f, 0.13f);
     drawBush(910, 35,  45, 60, 0.16f, 0.39f, 0.16f);
     drawBush(875, 70,  40, 55, 0.14f, 0.36f, 0.14f);
@@ -422,7 +418,7 @@ void drawFoliage()
     drawBush(705, 282, 12, 15, 0.16f, 0.39f, 0.16f);
     drawBush(690, 292, 10, 12, 0.13f, 0.35f, 0.13f);
 
-    // 5. Lining the EXACT right edge of the main road
+
     drawBush(1260, 40, 40, 60, 0.13f, 0.35f, 0.13f);
     drawBush(1225, 70, 38, 55, 0.14f, 0.37f, 0.14f);
     drawBush(1190, 100, 35, 50, 0.15f, 0.38f, 0.15f);
@@ -437,21 +433,21 @@ void drawFoliage()
     drawBush(905,  285, 15, 16, 0.12f, 0.33f, 0.12f);
     drawBush(890,  295, 12, 12, 0.13f, 0.35f, 0.13f);
 
-    // 6. Far Right Proper Lake Area
+    // 6. Far Right Lake Area
     drawBush(960, 290, 30, 20, 0.13f, 0.35f, 0.13f);
     drawBush(1050, 285, 40, 25, 0.15f, 0.38f, 0.15f);
     drawBush(1150, 280, 45, 30, 0.16f, 0.39f, 0.16f);
     drawBush(1250, 290, 35, 20, 0.14f, 0.36f, 0.14f);
 
-    // Bushes overlapping the back edge of the lake
+    // Bushes overlapping the lake
     drawBush(1000, 265, 25, 20, 0.14f, 0.37f, 0.14f);
     drawBush(1100, 255, 35, 25, 0.16f, 0.39f, 0.16f);
     drawBush(1200, 260, 45, 25, 0.12f, 0.34f, 0.12f);
 
-    // Bottom right corner framing
+    // Bottom right corner
     drawBush(1290, 40, 80, 90, 0.12f, 0.32f, 0.12f);
 
-    // Front Lake framing foliage
+    // Front Lake foliage
     drawBush(1150, 170, 40, 35, 0.13f, 0.35f, 0.13f);
 }
 
@@ -478,11 +474,11 @@ void timer(int value)
 
     for (int i = 0; i < NUM_LEFT_CARS; i++) {
         if (leftCars[i].dir == 1) {
-            // Driving away (decrease t)
+            // Driving away
             leftCars[i].t -= leftCars[i].speed * (leftCars[i].t + 0.3f);
             if (leftCars[i].t < -0.1f) leftCars[i].t = 1.2f; // Respawn front
         } else {
-            // Driving towards (increase t)
+            // Driving towards
             leftCars[i].t += leftCars[i].speed * (leftCars[i].t + 0.3f);
             if (leftCars[i].t > 1.2f) leftCars[i].t = -0.1f; // Respawn back
         }
@@ -522,10 +518,10 @@ void display()
     drawRightRoadLamps();
     drawLeftRoadLamps();
 
-    // Foliage Layer covers the bases
+    // Foliage Layer
     drawFoliage();
 
-    // Swap buffers for smooth animation
+
     glutSwapBuffers();
 }
 
