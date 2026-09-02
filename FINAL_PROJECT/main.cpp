@@ -251,26 +251,38 @@ void drawRectangle(float x1, float y1, float x2, float y2, float r, float g, flo
     glEnd();
 }
 
-void drawBush(float cx, float cy, float radiusX, float radiusY, float r, float g, float b) {
+void drawBush(float x, float y, float sx, float sy,
+              float r, float g, float b)
+{
     glPushMatrix();
-    glTranslatef(cx, cy, 0.0f);
-    glScalef(radiusX, radiusY, 1.0f);
+
+    glTranslatef(x, y, 0);
+    glScalef(sx, sy, 1);
 
     glColor3f(r, g, b);
+
+    // Main bush
     glBegin(GL_QUADS);
-        glVertex2f(-1.0f, -1.0f);
-        glVertex2f( 1.0f, -1.0f);
-        glVertex2f( 1.0f,  1.0f);
-        glVertex2f(-1.0f,  1.0f);
+
+        glVertex2f(-1, -1);
+        glVertex2f(1, -1);
+        glVertex2f(1, 1);
+        glVertex2f(-1, 1);
+
     glEnd();
 
-    glRotatef(45.0f, 0.0f, 0.0f, 1.0f);
+    // Rotated part
+    glRotatef(45, 0, 0, 1);
+
     glBegin(GL_QUADS);
-        glVertex2f(-1.0f, -1.0f);
-        glVertex2f( 1.0f, -1.0f);
-        glVertex2f( 1.0f,  1.0f);
-        glVertex2f(-1.0f,  1.0f);
+
+        glVertex2f(-1, -1);
+        glVertex2f(1, -1);
+        glVertex2f(1, 1);
+        glVertex2f(-1, 1);
+
     glEnd();
+
     glPopMatrix();
 }
 
@@ -292,6 +304,8 @@ void drawBackgroundBuildings() {
     drawRectangle(1010,300,1140,480,0.73f,0.73f,0.76f);
     drawRectangle(1130,300,1280,400,0.71f,0.71f,0.74f);
 }
+
+
 
 void drawCars() {
     for(int i = 0; i < NUM_CARS; i++) {
@@ -446,39 +460,43 @@ void drawGravelBed() {
     glEnd();
 }
 
-void drawStraightTrack(float startX, float endX) {
-    float baseWidth = 35.0f;
-    float endWidth = 5.0f;
-    float baseRailThick = 4.0f;
-    float endRailThick = 1.0f;
+void drawStraightTrack(float startX, float endX)
+{
+    // Rails
+    glColor3f(0.20f, 0.20f, 0.25f);
 
-    glColor3f(0.3f, 0.25f, 0.2f);
     glBegin(GL_QUADS);
-    for (float t = 0; t <= 1.0f; t += 0.04f) {
-        float y1 = 300.0f * t;
-        float sleeperHeight = 4.0f * (1.0f - t) + 1.0f;
-        float y2 = y1 + sleeperHeight;
-        float cx = startX + t * (endX - startX);
-        float w = baseWidth * (1.0f - t) + endWidth * t;
-        float sleeperLen = w * 1.3f;
-        glVertex2f(cx - sleeperLen, y1);
-        glVertex2f(cx + sleeperLen, y1);
-        glVertex2f(cx + sleeperLen, y2);
-        glVertex2f(cx - sleeperLen, y2);
+
+        // Left rail
+        glVertex2f(startX - 35, 0);
+        glVertex2f(startX - 30, 0);
+        glVertex2f(endX - 5, 300);
+        glVertex2f(endX - 8, 300);
+
+        // Right rail
+        glVertex2f(startX + 30, 0);
+        glVertex2f(startX + 35, 0);
+        glVertex2f(endX + 8, 300);
+        glVertex2f(endX + 5, 300);
+
+    glEnd();
+
+
+    // Sleepers
+    for(int y = 10; y < 300; y += 12)
+    {
+        float x = startX + (endX - startX) * y / 300.0f;
+
+        float width = 35 - (y * 30 / 300.0f);
+
+        drawRectangle(
+            x - width,
+            y,
+            x + width,
+            y + 4,
+            0.30f, 0.25f, 0.20f
+        );
     }
-    glEnd();
-
-    glColor3f(0.2f, 0.2f, 0.25f);
-    glBegin(GL_QUADS);
-    glVertex2f(startX - baseWidth - baseRailThick, 0);
-    glVertex2f(startX - baseWidth + baseRailThick, 0);
-    glVertex2f(endX - endWidth + endRailThick, 300);
-    glVertex2f(endX - endWidth - endRailThick, 300);
-    glVertex2f(startX + baseWidth - baseRailThick, 0);
-    glVertex2f(startX + baseWidth + baseRailThick, 0);
-    glVertex2f(endX + endWidth + endRailThick, 300);
-    glVertex2f(endX + endWidth - endRailThick, 300);
-    glEnd();
 }
 
 void drawAllTracks() {
