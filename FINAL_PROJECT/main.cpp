@@ -279,6 +279,13 @@ void drawVehicleModel(int type, int dir, float r, float g, float b)
     // Drop shadow
     drawRectangle(-width/2 - 2, -4, width/2 + 2, 2, 0.40f, 0.40f, 0.42f);
 
+    // BUS MIRRORS (Drawn behind the main body layer, sticking out)
+    if (type == 1)
+    {
+        drawRectangle(-width/2 - 8, 35, -width/2, 55, 0.15f, 0.15f, 0.15f); // Left Mirror
+        drawRectangle(width/2, 35, width/2 + 8, 55, 0.15f, 0.15f, 0.15f);   // Right Mirror
+    }
+
     // Main Body
     drawRectangle(-width/2, 0, width/2, height, r, g, b);
 
@@ -286,11 +293,15 @@ void drawVehicleModel(int type, int dir, float r, float g, float b)
     {
         if (type == 1) // Bus Back
         {
-            drawRectangle(-width/2, 0, width/2, 10, 0.15f, 0.15f, 0.15f);
-            drawRectangle(-width/2 + 15, 15, width/2 - 15, 35, 0.20f, 0.20f, 0.20f);
-            drawRectangle(-width/2 + 8, 40, width/2 - 8, height - 15, 0.20f, 0.20f, 0.25f);
-            drawRectangle(-width/2 + 4, 15, -width/2 + 12, 30, 1.00f, 0.00f, 0.00f);
-            drawRectangle(width/2 - 12, 15, width/2 - 4, 30, 1.00f, 0.00f, 0.00f);
+            drawRectangle(-width/2, 0, width/2, 10, 0.15f, 0.15f, 0.15f); // Bumper
+            drawRectangle(-width/2 + 8, 30, width/2 - 8, height - 25, 0.20f, 0.20f, 0.25f); // Rear Window
+
+            // Taillights
+            drawRectangle(-width/2 + 6, 12, -width/2 + 20, 20, 0.90f, 0.15f, 0.15f);
+            drawRectangle(width/2 - 20, 12, width/2 - 6, 20, 0.90f, 0.15f, 0.15f);
+
+            // Top Sign (Backwards facing)
+            drawRectangle(-width/2 + 15, height - 20, width/2 - 15, height - 8, 0.10f, 0.10f, 0.10f);
         }
         else // Car Back
         {
@@ -303,10 +314,18 @@ void drawVehicleModel(int type, int dir, float r, float g, float b)
     {
         if (type == 1) // Bus Front
         {
-            drawRectangle(-width/2, 0, width/2, 10, 0.15f, 0.15f, 0.15f);
-            drawRectangle(-width/2 + 5, 30, width/2 - 5, height - 15, 0.60f, 0.80f, 0.90f);
-            drawRectangle(-width/2 + 6, 14, -width/2 + 20, 22, 1.00f, 0.90f, 0.60f);
-            drawRectangle(width/2 - 20, 14, width/2 - 6, 22, 1.00f, 0.90f, 0.60f);
+            drawRectangle(-width/2, 0, width/2, 10, 0.15f, 0.15f, 0.15f); // Bumper
+
+            // Large Windshield
+            drawRectangle(-width/2 + 6, 30, width/2 - 6, height - 25, 0.60f, 0.80f, 0.90f);
+
+            // Yellow Headlights
+            drawRectangle(-width/2 + 8, 14, -width/2 + 22, 22, 1.00f, 0.90f, 0.60f);
+            drawRectangle(width/2 - 22, 14, width/2 - 8, 22, 1.00f, 0.90f, 0.60f);
+
+            // Illuminated Top Sign
+            drawRectangle(-width/2 + 15, height - 20, width/2 - 15, height - 8, 0.10f, 0.10f, 0.10f); // Sign border
+            drawRectangle(-width/2 + 17, height - 18, width/2 - 17, height - 10, 1.00f, 0.80f, 0.10f); // Sign light
         }
         else // Car Front
         {
@@ -475,6 +494,36 @@ void drawAllTracks() {
     drawStraightTrack(430, 465); // Track 1
     drawStraightTrack(620, 540); // Track 2
     drawStraightTrack(810, 615); // Track 3
+}
+
+void drawTunnels() {
+    // Main concrete structure for the tunnels
+    drawRectangle(350, 300, 655, 340, 0.60f, 0.60f, 0.63f);
+    drawRectangle(350, 340, 655, 345, 0.50f, 0.50f, 0.53f); // Top rim
+
+    // Track 0 Tunnel (x = 390)
+    drawRectangle(375, 300, 405, 330, 0.05f, 0.05f, 0.05f); // Black hole
+    drawRectangle(372, 330, 408, 334, 0.45f, 0.45f, 0.48f); // Top frame
+    drawRectangle(372, 300, 375, 334, 0.45f, 0.45f, 0.48f); // Left frame
+    drawRectangle(405, 300, 408, 334, 0.45f, 0.45f, 0.48f); // Right frame
+
+    // Track 1 Tunnel (x = 465)
+    drawRectangle(450, 300, 480, 330, 0.05f, 0.05f, 0.05f); // Black hole
+    drawRectangle(447, 330, 483, 334, 0.45f, 0.45f, 0.48f); // Top frame
+    drawRectangle(447, 300, 450, 334, 0.45f, 0.45f, 0.48f); // Left frame
+    drawRectangle(480, 300, 483, 334, 0.45f, 0.45f, 0.48f); // Right frame
+
+    // Track 2 Tunnel (x = 540)
+    drawRectangle(525, 300, 555, 330, 0.05f, 0.05f, 0.05f); // Black hole
+    drawRectangle(522, 330, 558, 334, 0.45f, 0.45f, 0.48f); // Top frame
+    drawRectangle(522, 300, 525, 334, 0.45f, 0.45f, 0.48f); // Left frame
+    drawRectangle(555, 300, 558, 334, 0.45f, 0.45f, 0.48f); // Right frame
+
+    // Track 3 Tunnel (x = 615)
+    drawRectangle(600, 300, 630, 330, 0.05f, 0.05f, 0.05f); // Black hole
+    drawRectangle(597, 330, 633, 334, 0.45f, 0.45f, 0.48f); // Top frame
+    drawRectangle(597, 300, 600, 334, 0.45f, 0.45f, 0.48f); // Left frame
+    drawRectangle(630, 300, 633, 334, 0.45f, 0.45f, 0.48f); // Right frame
 }
 
 void drawTrackSignal() {
@@ -724,6 +773,10 @@ void display() {
     drawAllTracks();
     drawTrackSignal();
 
+    // Tunnel drawn AFTER tracks, BEFORE trains
+    drawTunnels();
+
+    // Draw the single active train
     if (trainWaitTimer <= 0.0f) {
         drawTrain(activeTrainTrack, activeTrainT, activeTrainApproaching);
     }
