@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+// --- ANIMATION SETUP ---
+
 // 1. Expressway Cars
 struct Car {
     float x;
@@ -32,7 +34,6 @@ LeftRoadCar leftCars[NUM_LEFT_CARS] = {
     {0.9f, 0.012f,  1, 0.8f, 0.2f, 0.2f},
     {0.5f, 0.012f,  1, 0.2f, 0.3f, 0.8f},
     {0.1f, 0.012f,  1, 0.9f, 0.9f, 0.9f},
-
     {0.1f, 0.012f, -1, 0.8f, 0.8f, 0.2f},
     {0.5f, 0.012f, -1, 0.2f, 0.8f, 0.2f},
     {0.9f, 0.012f, -1, 0.1f, 0.1f, 0.1f}
@@ -61,187 +62,15 @@ bool activeTrainApproaching = false;
 float activeTrainT = 1.5f; // Start safely off-screen
 float trainWaitTimer = 2.0f; // Initial wait before first train spawns
 
-
-float getRandomFloat(float min, float max) {
+float getRandomFloat(float min, float max)
+{
     return min + ((float)rand() / (float)RAND_MAX) * (max - min);
 }
 
-// --- TRAIN PERSPECTIVE HELPERS ---
+// --- BASIC PRIMITIVES ---
 
-float getTrainX(float t, int track) {
-    if (track == 0) return 390.0f * (1.0f - t) + 240.0f * t; // Far Left Track
-    if (track == 1) return 465.0f * (1.0f - t) + 430.0f * t; // Mid Left Track
-    if (track == 2) return 540.0f * (1.0f - t) + 620.0f * t; // Mid Right Track
-    if (track == 3) return 615.0f * (1.0f - t) + 810.0f * t; // Far Right Track
-    return 0.0f;
-}
-float getTrainY(float t) { return 300.0f * (1.0f - t); }
-float getTrainScale(float t) { return 0.25f + 0.75f * t; }
-
-
-float clampT(float t) { return (t < 0.01f) ? 0.01f : t; }
-
-void getTrainPoint(float t_car, float v_height, float h_offset, float &outX, float &outY, int track) {
-    float scale = getTrainScale(t_car);
-    outX = getTrainX(t_car, track) + h_offset * scale;
-    outY = getTrainY(t_car) + v_height * scale;
-}
-
-void drawDistortedQuad(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, float r, float g, float b) {
-    glColor3f(r, g, b);
-    glBegin(GL_QUADS);
-        glVertex2f(x1, y1);
-        glVertex2f(x2, y2);
-        glVertex2f(x3, y3);
-        glVertex2f(x4, y4);
-    glEnd();
-}
-
-void drawTrainSideRect(float t_far, float t_near, float h_offset, float v_bottom, float v_top, float r, float g, float b, int track) {
-    float x_f_b, y_f_b, x_n_b, y_n_b, x_n_t, y_n_t, x_f_t, y_f_t;
-    getTrainPoint(t_far, v_bottom, h_offset, x_f_b, y_f_b, track);
-    getTrainPoint(t_near, v_bottom, h_offset, x_n_b, y_n_b, track);
-    getTrainPoint(t_near, v_top, h_offset, x_n_t, y_n_t, track);
-    getTrainPoint(t_far, v_top, h_offset, x_f_t, y_f_t, track);
-    drawDistortedQuad(x_f_b, y_f_b, x_n_b, y_n_b, x_n_t, y_n_t, x_f_t, y_f_t, r, g, b);
-}
-
-void drawTrainFrontRect(float t_near, float h_left, float h_right, float v_bottom, float v_top, float r, float g, float b, int track) {
-    float xl_b, yl_b, xr_b, yr_b, xl_t, yl_t, xr_t, yr_t;
-    getTrainPoint(t_near, v_bottom, h_left, xl_b, yl_b, track);
-    getTrainPoint(t_near, v_bottom, h_right, xr_b, yr_b, track);
-    getTrainPoint(t_near, v_top, h_right, xr_t, yr_t, track);
-    getTrainPoint(t_near, v_top, h_left, xl_t, yl_t, track);
-    drawDistortedQuad(xl_b, yl_b, xr_b, yr_b, xr_t, yr_t, xl_t, yl_t, r, g, b);
-}
-
-void drawTrainRoofRect(float t_far, float t_near, float h_left, float h_right, float v_top, float r, float g, float b, int track) {
-    float xl_far, yl_far, xr_far, yr_far, xl_near, yl_near, xr_near, yr_near;
-    getTrainPoint(t_far, v_top, h_left, xl_far, yl_far, track);
-    getTrainPoint(t_far, v_top, h_right, xr_far, yr_far, track);
-    getTrainPoint(t_near, v_top, h_right, xr_near, yr_near, track);
-    getTrainPoint(t_near, v_top, h_left, xl_near, yl_near, track);
-    drawDistortedQuad(xl_far, yl_far, xr_far, yr_far, xr_near, yr_near, xl_near, yl_near, r, g, b);
-}
-
-// --- TRAIN CAR DESIGNS ---
-
-void drawLocomotive(float t_far, float t_near, int track, bool isFacingViewer) {
-    float hw = 40.0f;
-    float h = 100.0f;
-    // Tracks on the left side of the screen see the right face (+hw). Tracks on the right see the left face (-hw).
-    float side_hw = (track < 2) ? hw : -hw;
-
-    // Side Faces
-    drawTrainSideRect(t_far, t_near, side_hw, 2, 18, 0.1f, 0.1f, 0.1f, track);     // Undercarriage
-    drawTrainSideRect(t_far, t_near, side_hw, 18, 35, 0.85f, 0.15f, 0.15f, track); // Red lower
-    drawTrainSideRect(t_far, t_near, side_hw, 35, 60, 0.95f, 0.85f, 0.1f, track);  // Yellow mid
-    drawTrainSideRect(t_far, t_near, side_hw, 60, h, 0.1f, 0.45f, 0.85f, track);   // Blue top
-
-    // Windows
-    float win_far = isFacingViewer ? t_near - 0.05f : t_far + 0.01f;
-    float win_near = isFacingViewer ? t_near - 0.01f : t_far + 0.05f;
-    drawTrainSideRect(win_far, win_near, side_hw, 65, 85, 0.1f, 0.15f, 0.2f, track);
-
-    // Roof
-    drawTrainRoofRect(t_far, t_near, -hw, hw, h, 0.3f, 0.3f, 0.3f, track);
-
-    if (isFacingViewer) {
-        // Full Front Face
-        drawTrainFrontRect(t_near, -hw, hw, 2, 18, 0.1f, 0.1f, 0.1f, track);
-        drawTrainFrontRect(t_near, -hw, hw, 18, 35, 0.85f, 0.15f, 0.15f, track);
-        drawTrainFrontRect(t_near, -hw, hw, 35, 60, 0.95f, 0.85f, 0.1f, track);
-        drawTrainFrontRect(t_near, -hw, hw, 60, h, 0.1f, 0.45f, 0.85f, track);
-
-        drawTrainFrontRect(t_near, -30, -6, 65, 85, 0.1f, 0.15f, 0.2f, track);
-        drawTrainFrontRect(t_near, 6, 30, 65, 85, 0.1f, 0.15f, 0.2f, track);
-
-        drawTrainFrontRect(t_near, -12, 12, 38, 56, 0.85f, 0.15f, 0.15f, track);
-        drawTrainFrontRect(t_near, -8, 8, 42, 52, 0.95f, 0.95f, 0.95f, track);
-        drawTrainFrontRect(t_near, -6, 6, 88, 94, 1.0f, 1.0f, 0.8f, track);
-    } else {
-        // Back Connection (When driving away)
-        drawTrainFrontRect(t_near, -hw, hw, 18, h, 0.1f, 0.4f, 0.2f, track);
-        drawTrainFrontRect(t_near, -24, 24, 18, h-5, 0.1f, 0.1f, 0.1f, track);
-    }
-}
-
-void drawCoach(float t_far, float t_near, int track, bool isLastCoach) {
-    float hw = 40.0f;
-    float h = 100.0f;
-    float side_hw = (track < 2) ? hw : -hw;
-
-    // Side Faces
-    drawTrainSideRect(t_far, t_near, side_hw, 2, 18, 0.1f, 0.1f, 0.1f, track);
-    drawTrainSideRect(t_far, t_near, side_hw, 18, h, 0.15f, 0.6f, 0.25f, track);
-
-    // Stripes
-    drawTrainSideRect(t_far, t_near, side_hw, 30, 35, 0.95f, 0.95f, 0.95f, track);
-    drawTrainSideRect(t_far, t_near, side_hw, 85, 90, 0.95f, 0.95f, 0.95f, track);
-
-    // Doors
-    float dt = t_near - t_far;
-    drawTrainSideRect(t_far + 0.02f*dt, t_far + 0.15f*dt, side_hw, 18, 90, 0.85f, 0.15f, 0.15f, track);
-    drawTrainSideRect(t_near - 0.15f*dt, t_near - 0.02f*dt, side_hw, 18, 90, 0.85f, 0.15f, 0.15f, track);
-
-    // Windows
-    int num_windows = 6;
-    for(int i = 1; i <= num_windows; i++) {
-        float wt_far = t_far + dt * (0.15f + 0.70f * (i - 0.8f) / num_windows);
-        float wt_near = t_far + dt * (0.15f + 0.70f * (i - 0.2f) / num_windows);
-        drawTrainSideRect(wt_far, wt_near, side_hw, 45, 75, 0.1f, 0.15f, 0.2f, track);
-    }
-
-    // Roof
-    drawTrainRoofRect(t_far, t_near, -hw, hw, h, 0.3f, 0.3f, 0.3f, track);
-
-    if (isLastCoach) {
-        // Flat Back Face (When driving away)
-        drawTrainFrontRect(t_near, -hw, hw, 2, 18, 0.1f, 0.1f, 0.1f, track);
-        drawTrainFrontRect(t_near, -hw, hw, 18, h, 0.15f, 0.6f, 0.25f, track);
-        drawTrainFrontRect(t_near, -hw, hw, 30, 35, 0.95f, 0.95f, 0.95f, track);
-        drawTrainFrontRect(t_near, -hw, hw, 85, 90, 0.95f, 0.95f, 0.95f, track);
-        drawTrainFrontRect(t_near, -18, 18, 18, 90, 0.85f, 0.15f, 0.15f, track);
-        drawTrainFrontRect(t_near, -12, 12, 45, 75, 0.1f, 0.15f, 0.2f, track);
-    } else {
-        // Inter-coach Connection
-        drawTrainFrontRect(t_near, -hw, hw, 18, h, 0.1f, 0.4f, 0.2f, track);
-        drawTrainFrontRect(t_near, -24, 24, 18, h-5, 0.1f, 0.1f, 0.1f, track);
-    }
-}
-
-
-void drawBangladeshTrain(int track, float frontT, bool isApproaching) {
-    float engine_f, engine_b, c1_f, c1_b, c2_f, c2_b, c3_f, c3_b;
-
-    if (isApproaching) {
-        engine_f = frontT;
-        engine_b = engine_f - 0.14f;
-        c1_f = engine_b - 0.01f; c1_b = c1_f - 0.16f;
-        c2_f = c1_b - 0.01f; c2_b = c2_f - 0.16f;
-        c3_f = c2_b - 0.01f; c3_b = c3_f - 0.16f;
-
-        if (c3_f > 0.01f && c3_b < 1.2f) drawCoach(clampT(c3_b), clampT(c3_f), track, false);
-        if (c2_f > 0.01f && c2_b < 1.2f) drawCoach(clampT(c2_b), clampT(c2_f), track, false);
-        if (c1_f > 0.01f && c1_b < 1.2f) drawCoach(clampT(c1_b), clampT(c1_f), track, false);
-        if (engine_f > 0.01f && engine_b < 1.2f) drawLocomotive(clampT(engine_b), clampT(engine_f), track, true);
-    } else {
-        engine_f = frontT;
-        engine_b = engine_f + 0.14f;
-        c1_f = engine_b + 0.01f; c1_b = c1_f + 0.16f;
-        c2_f = c1_b + 0.01f; c2_b = c2_f + 0.16f;
-        c3_f = c2_b + 0.01f; c3_b = c3_f + 0.16f;
-
-        if (engine_b > 0.01f && engine_f < 1.2f) drawLocomotive(clampT(engine_f), clampT(engine_b), track, false);
-        if (c1_b > 0.01f && c1_f < 1.2f) drawCoach(clampT(c1_f), clampT(c1_b), track, false);
-        if (c2_b > 0.01f && c2_f < 1.2f) drawCoach(clampT(c2_f), clampT(c2_b), track, false);
-        if (c3_b > 0.01f && c3_f < 1.2f) drawCoach(clampT(c3_f), clampT(c3_b), track, true);
-    }
-}
-
-
-
-void drawRectangle(float x1, float y1, float x2, float y2, float r, float g, float b) {
+void drawRectangle(float x1, float y1, float x2, float y2, float r, float g, float b)
+{
     glColor3f(r, g, b);
     glBegin(GL_QUADS);
         glVertex2f(x1, y1);
@@ -251,170 +80,326 @@ void drawRectangle(float x1, float y1, float x2, float y2, float r, float g, flo
     glEnd();
 }
 
-void drawBush(float x, float y, float sx, float sy,
-              float r, float g, float b)
+void drawBush(float cx, float cy, float radiusX, float radiusY, float r, float g, float b)
 {
     glPushMatrix();
-
-    glTranslatef(x, y, 0);
-    glScalef(sx, sy, 1);
+    glTranslatef(cx, cy, 0.0f);
+    glScalef(radiusX, radiusY, 1.0f);
 
     glColor3f(r, g, b);
 
     // Main bush
     glBegin(GL_QUADS);
-
-        glVertex2f(-1, -1);
-        glVertex2f(1, -1);
-        glVertex2f(1, 1);
-        glVertex2f(-1, 1);
-
+        glVertex2f(-1.0f, -1.0f);
+        glVertex2f( 1.0f, -1.0f);
+        glVertex2f( 1.0f,  1.0f);
+        glVertex2f(-1.0f,  1.0f);
     glEnd();
 
     // Rotated part
-    glRotatef(45, 0, 0, 1);
-
+    glRotatef(45.0f, 0.0f, 0.0f, 1.0f);
     glBegin(GL_QUADS);
-
-        glVertex2f(-1, -1);
-        glVertex2f(1, -1);
-        glVertex2f(1, 1);
-        glVertex2f(-1, 1);
-
+        glVertex2f(-1.0f, -1.0f);
+        glVertex2f( 1.0f, -1.0f);
+        glVertex2f( 1.0f,  1.0f);
+        glVertex2f(-1.0f,  1.0f);
     glEnd();
 
     glPopMatrix();
 }
 
+// --- TRAIN PERSPECTIVE MATH ---
+
+float getTrainX(float t, int track) {
+    if (track == 0) return 390.0f * (1.0f - t) + 240.0f * t;
+    if (track == 1) return 465.0f * (1.0f - t) + 430.0f * t;
+    if (track == 2) return 540.0f * (1.0f - t) + 620.0f * t;
+    if (track == 3) return 615.0f * (1.0f - t) + 810.0f * t;
+    return 0.0f;
+}
+
+float getTrainY(float t) { return 300.0f * (1.0f - t); }
+float getTrainScale(float t) { return 0.25f + 0.75f * t; }
+
+void getTrainPoint(float t, float h_offset, float v_offset, int track, float &outX, float &outY) {
+    if (t < 0.01f) t = 0.01f; // Silent Fix: prevents 3D geometry from inverting at the horizon
+    float scale = getTrainScale(t);
+    outX = getTrainX(t, track) + h_offset * scale;
+    outY = getTrainY(t) + v_offset * scale;
+}
+
+void drawDistortedQuad(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, float r, float g, float b) {
+    glColor3f(r, g, b);
+    glBegin(GL_QUADS);
+        glVertex2f(x1, y1); glVertex2f(x2, y2); glVertex2f(x3, y3); glVertex2f(x4, y4);
+    glEnd();
+}
+
+void drawTrainSideRect(float t_far, float t_near, float h_offset, float v_bottom, float v_top, float r, float g, float b, int track) {
+    float x1, y1, x2, y2, x3, y3, x4, y4;
+    getTrainPoint(t_far,  h_offset, v_bottom, track, x1, y1);
+    getTrainPoint(t_near, h_offset, v_bottom, track, x2, y2);
+    getTrainPoint(t_near, h_offset, v_top,    track, x3, y3);
+    getTrainPoint(t_far,  h_offset, v_top,    track, x4, y4);
+    drawDistortedQuad(x1, y1, x2, y2, x3, y3, x4, y4, r, g, b);
+}
+
+void drawTrainFrontRect(float t, float h_left, float h_right, float v_bottom, float v_top, float r, float g, float b, int track) {
+    float x1, y1, x2, y2, x3, y3, x4, y4;
+    getTrainPoint(t, h_left,  v_bottom, track, x1, y1);
+    getTrainPoint(t, h_right, v_bottom, track, x2, y2);
+    getTrainPoint(t, h_right, v_top,    track, x3, y3);
+    getTrainPoint(t, h_left,  v_top,    track, x4, y4);
+    drawDistortedQuad(x1, y1, x2, y2, x3, y3, x4, y4, r, g, b);
+}
+
+void drawTrainRoofRect(float t_far, float t_near, float h_left, float h_right, float v_top, float r, float g, float b, int track) {
+    float x1, y1, x2, y2, x3, y3, x4, y4;
+    getTrainPoint(t_far,  h_left,  v_top, track, x1, y1);
+    getTrainPoint(t_far,  h_right, v_top, track, x2, y2);
+    getTrainPoint(t_near, h_right, v_top, track, x3, y3);
+    getTrainPoint(t_near, h_left,  v_top, track, x4, y4);
+    drawDistortedQuad(x1, y1, x2, y2, x3, y3, x4, y4, r, g, b);
+}
+
+// --- TRAIN CAR DESIGNS ---
+
+void drawLocomotive(float t_far, float t_near, int track, bool isFacingViewer) {
+    float hw = 40.0f;
+    float h = 100.0f;
+    // FIXED: Tracks on the left (0,1) show the right face (+hw). Tracks on the right (2,3) show the left face (-hw).
+    float side_hw = (track < 2) ? hw : -hw;
+
+    // FIXED (Z-SORTING): Draw solid far face first to prevent hollow optical illusion
+    drawTrainFrontRect(t_far, -hw, hw, 2, h, 0.15f, 0.15f, 0.15f, track);
+
+    // Side Faces
+    drawTrainSideRect(t_far, t_near, side_hw, 2,  18, 0.10f, 0.10f, 0.10f, track);
+    drawTrainSideRect(t_far, t_near, side_hw, 18, 35, 0.85f, 0.15f, 0.15f, track);
+    drawTrainSideRect(t_far, t_near, side_hw, 35, 60, 0.95f, 0.85f, 0.10f, track);
+    drawTrainSideRect(t_far, t_near, side_hw, 60, h,  0.10f, 0.45f, 0.85f, track);
+
+    // Windows
+    float win_far = isFacingViewer ? t_near - 0.05f : t_far + 0.01f;
+    float win_near = isFacingViewer ? t_near - 0.01f : t_far + 0.05f;
+    drawTrainSideRect(win_far, win_near, side_hw, 65, 85, 0.10f, 0.15f, 0.20f, track);
+
+    // Roof
+    drawTrainRoofRect(t_far, t_near, -hw, hw, h, 0.30f, 0.30f, 0.30f, track);
+
+    if (isFacingViewer) {
+        drawTrainFrontRect(t_near, -hw, hw, 2,  18, 0.10f, 0.10f, 0.10f, track);
+        drawTrainFrontRect(t_near, -hw, hw, 18, 35, 0.85f, 0.15f, 0.15f, track);
+        drawTrainFrontRect(t_near, -hw, hw, 35, 60, 0.95f, 0.85f, 0.10f, track);
+        drawTrainFrontRect(t_near, -hw, hw, 60, h,  0.10f, 0.45f, 0.85f, track);
+        drawTrainFrontRect(t_near, -30, -6, 65, 85, 0.10f, 0.15f, 0.20f, track);
+        drawTrainFrontRect(t_near, 6,   30, 65, 85, 0.10f, 0.15f, 0.20f, track);
+        drawTrainFrontRect(t_near, -12, 12, 38, 56, 0.85f, 0.15f, 0.15f, track);
+        drawTrainFrontRect(t_near, -8,  8,  42, 52, 0.95f, 0.95f, 0.95f, track);
+        drawTrainFrontRect(t_near, -6,  6,  88, 94, 1.00f, 1.00f, 0.80f, track);
+    } else {
+        drawTrainFrontRect(t_near, -hw, hw, 18, h,   0.10f, 0.40f, 0.20f, track);
+        drawTrainFrontRect(t_near, -24, 24, 18, h-5, 0.10f, 0.10f, 0.10f, track);
+    }
+}
+
+void drawCoach(float t_far, float t_near, int track, bool isLastCoach) {
+    float hw = 40.0f;
+    float h = 100.0f;
+    float side_hw = (track < 2) ? hw : -hw;
+
+    // FIXED (Z-SORTING): Draw solid far face first to prevent hollow optical illusion
+    drawTrainFrontRect(t_far, -hw, hw, 2, h, 0.15f, 0.15f, 0.15f, track);
+
+    // Side Faces
+    drawTrainSideRect(t_far, t_near, side_hw, 2,  18, 0.10f, 0.10f, 0.10f, track);
+    drawTrainSideRect(t_far, t_near, side_hw, 18, h,  0.15f, 0.60f, 0.25f, track);
+    drawTrainSideRect(t_far, t_near, side_hw, 30, 35, 0.95f, 0.95f, 0.95f, track);
+    drawTrainSideRect(t_far, t_near, side_hw, 85, 90, 0.95f, 0.95f, 0.95f, track);
+
+    // Doors
+    float dt = t_near - t_far;
+    drawTrainSideRect(t_far + 0.02f*dt, t_far + 0.15f*dt,   side_hw, 18, 90, 0.85f, 0.15f, 0.15f, track);
+    drawTrainSideRect(t_near - 0.15f*dt, t_near - 0.02f*dt, side_hw, 18, 90, 0.85f, 0.15f, 0.15f, track);
+
+    // Windows
+    for(int i = 1; i <= 6; i++) {
+        float wt_far = t_far + dt * (0.15f + 0.70f * (i - 0.8f) / 6.0f);
+        float wt_near = t_far + dt * (0.15f + 0.70f * (i - 0.2f) / 6.0f);
+        drawTrainSideRect(wt_far, wt_near, side_hw, 45, 75, 0.10f, 0.15f, 0.20f, track);
+    }
+
+    // Roof
+    drawTrainRoofRect(t_far, t_near, -hw, hw, h, 0.30f, 0.30f, 0.30f, track);
+
+    if (isLastCoach) {
+        drawTrainFrontRect(t_near, -hw, hw, 2,  18, 0.10f, 0.10f, 0.10f, track);
+        drawTrainFrontRect(t_near, -hw, hw, 18, h,  0.15f, 0.60f, 0.25f, track);
+        drawTrainFrontRect(t_near, -hw, hw, 30, 35, 0.95f, 0.95f, 0.95f, track);
+        drawTrainFrontRect(t_near, -hw, hw, 85, 90, 0.95f, 0.95f, 0.95f, track);
+        drawTrainFrontRect(t_near, -18, 18, 18, 90, 0.85f, 0.15f, 0.15f, track);
+        drawTrainFrontRect(t_near, -12, 12, 45, 75, 0.10f, 0.15f, 0.20f, track);
+    } else {
+        drawTrainFrontRect(t_near, -hw, hw, 18, h,   0.10f, 0.40f, 0.20f, track);
+        drawTrainFrontRect(t_near, -24, 24, 18, h-5, 0.10f, 0.10f, 0.10f, track);
+    }
+}
+
+void drawTrain(int track, float frontT, bool isApproaching) {
+    float engine_f = frontT;
+    float engine_b = isApproaching ? engine_f - 0.14f : engine_f + 0.14f;
+    float c1_f = isApproaching ? engine_b - 0.01f : engine_b + 0.01f;
+    float c1_b = isApproaching ? c1_f - 0.16f : c1_f + 0.16f;
+    float c2_f = isApproaching ? c1_b - 0.01f : c1_b + 0.01f;
+    float c2_b = isApproaching ? c2_f - 0.16f : c2_f + 0.16f;
+    float c3_f = isApproaching ? c2_b - 0.01f : c2_b + 0.01f;
+    float c3_b = isApproaching ? c3_f - 0.16f : c3_f + 0.16f;
+
+    if(isApproaching) {
+        if(c3_b < 1.2f && c3_f > 0) drawCoach(c3_b, c3_f, track, false);
+        if(c2_b < 1.2f && c2_f > 0) drawCoach(c2_b, c2_f, track, false);
+        if(c1_b < 1.2f && c1_f > 0) drawCoach(c1_b, c1_f, track, false);
+        if(engine_b < 1.2f && engine_f > 0) drawLocomotive(engine_b, engine_f, track, true);
+    } else {
+        if(engine_f < 1.2f && engine_b > 0) drawLocomotive(engine_f, engine_b, track, false);
+        if(c1_f < 1.2f && c1_b > 0)         drawCoach(c1_f, c1_b, track, false);
+        if(c2_f < 1.2f && c2_b > 0)         drawCoach(c2_f, c2_b, track, false);
+        if(c3_f < 1.2f && c3_b > 0)         drawCoach(c3_f, c3_b, track, true);
+    }
+}
+
+// --- ROAD VEHICLE RENDERER (Simplified with Translate & Scale) ---
+
+void drawVehicleModel(int type, int dir, float r, float g, float b)
+{
+    float width = (type == 1) ? 65.0f : 60.0f;
+    float height = (type == 1) ? 80.0f : 24.0f;
+    float roof = (type == 1) ? 0.0f : 16.0f;
+
+    // Drop shadow
+    drawRectangle(-width/2 - 2, -4, width/2 + 2, 2, 0.40f, 0.40f, 0.42f);
+
+    // Main Body
+    drawRectangle(-width/2, 0, width/2, height, r, g, b);
+
+    if (dir == 1)
+    {
+        if (type == 1) // Bus Back
+        {
+            drawRectangle(-width/2, 0, width/2, 10, 0.15f, 0.15f, 0.15f);
+            drawRectangle(-width/2 + 15, 15, width/2 - 15, 35, 0.20f, 0.20f, 0.20f);
+            drawRectangle(-width/2 + 8, 40, width/2 - 8, height - 15, 0.20f, 0.20f, 0.25f);
+            drawRectangle(-width/2 + 4, 15, -width/2 + 12, 30, 1.00f, 0.00f, 0.00f);
+            drawRectangle(width/2 - 12, 15, width/2 - 4, 30, 1.00f, 0.00f, 0.00f);
+        }
+        else // Car Back
+        {
+            drawRectangle(-width/2 + 8, height, width/2 - 8, height + roof, 0.20f, 0.20f, 0.25f);
+            drawRectangle(-width/2 + 2, 6, -width/2 + 14, 10, 1.00f, 0.00f, 0.00f);
+            drawRectangle(width/2 - 14, 6, width/2 - 2, 10, 1.00f, 0.00f, 0.00f);
+        }
+    }
+    else
+    {
+        if (type == 1) // Bus Front
+        {
+            drawRectangle(-width/2, 0, width/2, 10, 0.15f, 0.15f, 0.15f);
+            drawRectangle(-width/2 + 5, 30, width/2 - 5, height - 15, 0.60f, 0.80f, 0.90f);
+            drawRectangle(-width/2 + 6, 14, -width/2 + 20, 22, 1.00f, 0.90f, 0.60f);
+            drawRectangle(width/2 - 20, 14, width/2 - 6, 22, 1.00f, 0.90f, 0.60f);
+        }
+        else // Car Front
+        {
+            drawRectangle(-width/2 + 6, height, width/2 - 6, height + roof, 0.60f, 0.80f, 0.90f);
+            drawRectangle(-width/2 + 2, 8, -width/2 + 14, 14, 1.00f, 0.90f, 0.60f);
+            drawRectangle(width/2 - 14, 8, width/2 - 2, 14, 1.00f, 0.90f, 0.60f);
+            drawRectangle(-10, 4, 10, 10, 0.15f, 0.15f, 0.15f);
+        }
+    }
+}
+
+void drawLeftRoadCars()
+{
+    for(int pass = 0; pass < 2; pass++)
+    {
+        for(int i = 0; i < NUM_LEFT_CARS; i++)
+        {
+            float t = leftCars[i].t;
+            if(t < 0.0f || t > 1.2f) continue;
+            if ((pass == 0 && t > 0.5f) || (pass == 1 && t <= 0.5f)) continue;
+
+            float scale = 0.25f + 0.75f * t;
+            float cy = 300.0f * (1.0f - t);
+            float cx = (leftCars[i].dir == 1) ? (210.0f * (1.0f - t) + 60.0f * t) : (170.0f * (1.0f - t) - 40.0f * t);
+
+            glPushMatrix();
+            glTranslatef(cx, cy, 0.0f);
+            glScalef(scale, scale, 1.0f);
+            drawVehicleModel(0, leftCars[i].dir, leftCars[i].r, leftCars[i].g, leftCars[i].b);
+            glPopMatrix();
+        }
+    }
+}
+
+void drawRightRoadVehicles()
+{
+    for(int pass = 0; pass < 2; pass++)
+    {
+        for(int i = 0; i < NUM_RIGHT_VEHICLES; i++)
+        {
+            float t = rightVehicles[i].t;
+            if(t < 0.0f || t > 1.2f) continue;
+            if ((pass == 0 && t > 0.5f) || (pass == 1 && t <= 0.5f)) continue;
+
+            float scale = 0.25f + 0.80f * t;
+            float cy = 300.0f * (1.0f - t);
+            float cx = (rightVehicles[i].dir == 1) ? (750.0f * (1.0f - t) + 1060.0f * t) : (800.0f * (1.0f - t) + 1190.0f * t);
+
+            glPushMatrix();
+            glTranslatef(cx, cy, 0.0f);
+            glScalef(scale, scale, 1.0f);
+            drawVehicleModel(rightVehicles[i].type, rightVehicles[i].dir, rightVehicles[i].r, rightVehicles[i].g, rightVehicles[i].b);
+            glPopMatrix();
+        }
+    }
+}
+
+// --- STATIC SCENERY ---
+
 void drawSky() { drawRectangle(0, 300, 1280, 720, 0.53f, 0.81f, 0.98f); }
 
 void drawGround() { drawRectangle(0, 0, 1280, 300, 0.32f, 0.65f, 0.25f); }
 
-void drawBackgroundBuildings() {
-    drawRectangle(0,300,90,410,0.72f,0.72f,0.75f);
-    drawRectangle(80,300,180,380,0.70f,0.70f,0.73f);
-    drawRectangle(170,300,280,440,0.74f,0.74f,0.77f);
-    drawRectangle(270,300,350,390,0.71f,0.71f,0.74f);
-    drawRectangle(340,300,470,470,0.73f,0.73f,0.76f);
-    drawRectangle(460,300,560,400,0.71f,0.71f,0.74f);
-    drawRectangle(550,300,690,460,0.72f,0.72f,0.75f);
-    drawRectangle(680,300,790,390,0.70f,0.70f,0.73f);
-    drawRectangle(780,300,920,440,0.74f,0.74f,0.77f);
-    drawRectangle(910,300,1020,410,0.71f,0.71f,0.74f);
-    drawRectangle(1010,300,1140,480,0.73f,0.73f,0.76f);
-    drawRectangle(1130,300,1280,400,0.71f,0.71f,0.74f);
+void drawLake() {
+    glColor3f(0.25f, 0.65f, 0.85f);
+    glBegin(GL_POLYGON);
+        glVertex2f(1080, 180);
+        glVertex2f(1280, 160);
+        glVertex2f(1280, 260);
+        glVertex2f(930,  260);
+    glEnd();
 }
 
-
+void drawBackgroundBuildings() {
+    drawRectangle(0,   300, 90,   410, 0.72f, 0.72f, 0.75f);
+    drawRectangle(80,  300, 180,  380, 0.70f, 0.70f, 0.73f);
+    drawRectangle(170, 300, 280,  440, 0.74f, 0.74f, 0.77f);
+    drawRectangle(270, 300, 350,  390, 0.71f, 0.71f, 0.74f);
+    drawRectangle(340, 300, 470,  470, 0.73f, 0.73f, 0.76f);
+    drawRectangle(460, 300, 560,  400, 0.71f, 0.71f, 0.74f);
+    drawRectangle(550, 300, 690,  460, 0.72f, 0.72f, 0.75f);
+    drawRectangle(680, 300, 790,  390, 0.70f, 0.70f, 0.73f);
+    drawRectangle(780, 300, 920,  440, 0.74f, 0.74f, 0.77f);
+    drawRectangle(910, 300, 1020, 410, 0.71f, 0.71f, 0.74f);
+    drawRectangle(1010,300, 1140, 480, 0.73f, 0.73f, 0.76f);
+    drawRectangle(1130,300, 1280, 400, 0.71f, 0.71f, 0.74f);
+}
 
 void drawCars() {
     for(int i = 0; i < NUM_CARS; i++) {
         drawRectangle(cars[i].x - 1, cars[i].y - 1, cars[i].x + 15, cars[i].y, 0.55f, 0.55f, 0.58f);
         drawRectangle(cars[i].x, cars[i].y, cars[i].x + 14, cars[i].y + 4, cars[i].r, cars[i].g, cars[i].b);
         drawRectangle(cars[i].x + 3, cars[i].y + 4, cars[i].x + 11, cars[i].y + 7, 0.7f, 0.8f, 0.9f);
-    }
-}
-
-void drawLeftRoadCars() {
-    for(int pass = 0; pass < 2; pass++) {
-        for(int i = 0; i < NUM_LEFT_CARS; i++) {
-            float t = leftCars[i].t;
-            if(t < 0.0f || t > 1.2f) continue;
-            if ((pass == 0 && t > 0.5f) || (pass == 1 && t <= 0.5f)) continue;
-
-            float scale = 0.25f + 0.75f * t;
-            float cx, cy;
-            cy = 300.0f * (1.0f - t);
-
-            if (leftCars[i].dir == 1) {
-                cx = 210.0f * (1.0f - t) + 60.0f * t;
-            } else {
-                cx = 170.0f * (1.0f - t) + (-40.0f) * t;
-            }
-
-            float width = 60.0f * scale;
-            float height = 24.0f * scale;
-            float roof = 16.0f * scale;
-
-            drawRectangle(cx - width/2 - 2*scale, cy - 4*scale, cx + width/2 + 2*scale, cy + 2*scale, 0.4f, 0.4f, 0.42f);
-            drawRectangle(cx - width/2, cy, cx + width/2, cy + height, leftCars[i].r, leftCars[i].g, leftCars[i].b);
-
-            if (leftCars[i].dir == 1) {
-                drawRectangle(cx - width/2 + 8*scale, cy + height, cx + width/2 - 8*scale, cy + height + roof, 0.2f, 0.2f, 0.25f);
-                drawRectangle(cx - width/2 + 2*scale, cy + 6*scale, cx - width/2 + 14*scale, cy + 10*scale, 1.0f, 0.0f, 0.0f);
-                drawRectangle(cx + width/2 - 14*scale, cy + 6*scale, cx + width/2 - 2*scale, cy + 10*scale, 1.0f, 0.0f, 0.0f);
-            } else {
-                drawRectangle(cx - width/2 + 6*scale, cy + height, cx + width/2 - 6*scale, cy + height + roof, 0.6f, 0.8f, 0.9f);
-                drawRectangle(cx - width/2 + 2*scale, cy + 8*scale, cx - width/2 + 14*scale, cy + 14*scale, 1.0f, 0.9f, 0.6f);
-                drawRectangle(cx + width/2 - 14*scale, cy + 8*scale, cx + width/2 - 2*scale, cy + 14*scale, 1.0f, 0.9f, 0.6f);
-                drawRectangle(cx - 10*scale, cy + 4*scale, cx + 10*scale, cy + 10*scale, 0.15f, 0.15f, 0.15f);
-            }
-        }
-    }
-}
-
-void drawRightRoadVehicles() {
-    for(int pass = 0; pass < 2; pass++) {
-        for(int i = 0; i < NUM_RIGHT_VEHICLES; i++) {
-            float t = rightVehicles[i].t;
-            if(t < 0.0f || t > 1.2f) continue;
-            if ((pass == 0 && t > 0.5f) || (pass == 1 && t <= 0.5f)) continue;
-
-            float scale = 0.25f + 0.80f * t;
-            float cx, cy;
-            cy = 300.0f * (1.0f - t);
-
-            if (rightVehicles[i].dir == 1) {
-                cx = 750.0f * (1.0f - t) + 1060.0f * t;
-            } else {
-                cx = 800.0f * (1.0f - t) + 1190.0f * t;
-            }
-
-            float width, height, roof;
-            if (rightVehicles[i].type == 1) {
-                width = 65.0f * scale;
-                height = 80.0f * scale;
-                roof = 0.0f;
-            } else {
-                width = 65.0f * scale;
-                height = 26.0f * scale;
-                roof = 18.0f * scale;
-            }
-
-            drawRectangle(cx - width/2 - 2*scale, cy - 4*scale, cx + width/2 + 2*scale, cy + 2*scale, 0.4f, 0.4f, 0.42f);
-            drawRectangle(cx - width/2, cy, cx + width/2, cy + height, rightVehicles[i].r, rightVehicles[i].g, rightVehicles[i].b);
-
-            if (rightVehicles[i].dir == 1) {
-                if (rightVehicles[i].type == 1) {
-                    drawRectangle(cx - width/2, cy, cx + width/2, cy + 10*scale, 0.15f, 0.15f, 0.15f);
-                    drawRectangle(cx - width/2 + 15*scale, cy + 15*scale, cx + width/2 - 15*scale, cy + 35*scale, 0.2f, 0.2f, 0.2f);
-                    drawRectangle(cx - width/2 + 8*scale, cy + 40*scale, cx + width/2 - 8*scale, cy + height - 15*scale, 0.2f, 0.2f, 0.25f);
-                    drawRectangle(cx - width/2 + 15*scale, cy + height - 12*scale, cx + width/2 - 15*scale, cy + height - 4*scale, 0.1f, 0.1f, 0.1f);
-                    drawRectangle(cx - width/2 + 4*scale, cy + 15*scale, cx - width/2 + 12*scale, cy + 30*scale, 1.0f, 0.0f, 0.0f);
-                    drawRectangle(cx + width/2 - 12*scale, cy + 15*scale, cx + width/2 - 4*scale, cy + 30*scale, 1.0f, 0.0f, 0.0f);
-                } else {
-                    drawRectangle(cx - width/2 + 8*scale, cy + height, cx + width/2 - 8*scale, cy + height + roof, 0.2f, 0.2f, 0.25f);
-                    drawRectangle(cx - width/2 + 2*scale, cy + 6*scale, cx - width/2 + 14*scale, cy + 10*scale, 1.0f, 0.0f, 0.0f);
-                    drawRectangle(cx + width/2 - 14*scale, cy + 6*scale, cx + width/2 - 2*scale, cy + 10*scale, 1.0f, 0.0f, 0.0f);
-                }
-            } else {
-                if (rightVehicles[i].type == 1) {
-                    drawRectangle(cx - width/2, cy, cx + width/2, cy + 10*scale, 0.15f, 0.15f, 0.15f);
-                    drawRectangle(cx - width/2 + 5*scale, cy + 30*scale, cx + width/2 - 5*scale, cy + height - 15*scale, 0.6f, 0.8f, 0.9f);
-                    drawRectangle(cx - width/2 + 10*scale, cy + height - 12*scale, cx + width/2 - 10*scale, cy + height - 3*scale, 0.1f, 0.1f, 0.1f);
-                    drawRectangle(cx - width/2 + 14*scale, cy + height - 10*scale, cx + width/2 - 14*scale, cy + height - 5*scale, 1.0f, 0.8f, 0.1f);
-                    drawRectangle(cx - width/2 + 6*scale, cy + 14*scale, cx - width/2 + 20*scale, cy + 22*scale, 1.0f, 0.9f, 0.6f);
-                    drawRectangle(cx + width/2 - 20*scale, cy + 14*scale, cx + width/2 - 6*scale, cy + 22*scale, 1.0f, 0.9f, 0.6f);
-                    drawRectangle(cx - width/2 - 6*scale, cy + 35*scale, cx - width/2, cy + 55*scale, 0.1f, 0.1f, 0.1f);
-                    drawRectangle(cx + width/2, cy + 35*scale, cx + width/2 + 6*scale, cy + 55*scale, 0.1f, 0.1f, 0.1f);
-                } else {
-                    drawRectangle(cx - width/2 + 6*scale, cy + height, cx + width/2 - 6*scale, cy + height + roof, 0.6f, 0.8f, 0.9f);
-                    drawRectangle(cx - width/2 + 2*scale, cy + 8*scale, cx - width/2 + 14*scale, cy + 14*scale, 1.0f, 0.9f, 0.6f);
-                    drawRectangle(cx + width/2 - 14*scale, cy + 8*scale, cx + width/2 - 2*scale, cy + 14*scale, 1.0f, 0.9f, 0.6f);
-                    drawRectangle(cx - 10*scale, cy + 4*scale, cx + 10*scale, cy + 10*scale, 0.15f, 0.15f, 0.15f);
-                }
-            }
-        }
     }
 }
 
@@ -425,7 +410,7 @@ void drawElevatedHighway() {
     }
     drawCars();
     for(int i = 26; i < 1280; i += 120) {
-        drawRectangle(i, 370, i + 2, 388, 0.45f, 0.45f, 0.48f);
+        drawRectangle(i,     370, i + 2, 388, 0.45f, 0.45f, 0.48f);
         drawRectangle(i - 4, 386, i + 6, 388, 0.45f, 0.45f, 0.48f);
     }
 }
@@ -464,38 +449,24 @@ void drawStraightTrack(float startX, float endX)
 {
     // Rails
     glColor3f(0.20f, 0.20f, 0.25f);
-
     glBegin(GL_QUADS);
-
-        // Left rail
         glVertex2f(startX - 35, 0);
         glVertex2f(startX - 30, 0);
         glVertex2f(endX - 5, 300);
         glVertex2f(endX - 8, 300);
 
-        // Right rail
         glVertex2f(startX + 30, 0);
         glVertex2f(startX + 35, 0);
         glVertex2f(endX + 8, 300);
         glVertex2f(endX + 5, 300);
-
     glEnd();
-
 
     // Sleepers
     for(int y = 10; y < 300; y += 12)
     {
         float x = startX + (endX - startX) * y / 300.0f;
-
         float width = 35 - (y * 30 / 300.0f);
-
-        drawRectangle(
-            x - width,
-            y,
-            x + width,
-            y + 4,
-            0.30f, 0.25f, 0.20f
-        );
+        drawRectangle(x - width, y, x + width, y + 4, 0.30f, 0.25f, 0.20f);
     }
 }
 
@@ -509,22 +480,14 @@ void drawAllTracks() {
 void drawTrackSignal() {
     float xCenter = 516.0f;
     float yBase = 120.0f;
+
     drawRectangle(xCenter - 6.0f, yBase, xCenter - 2.0f, yBase + 10.0f, 0.45f, 0.45f, 0.45f);
     drawRectangle(xCenter + 2.0f, yBase, xCenter + 6.0f, yBase + 10.0f, 0.45f, 0.45f, 0.45f);
-    drawRectangle(xCenter - 2.0f, yBase, xCenter + 2.0f, yBase + 85.0f, 0.5f, 0.5f, 0.5f);
+    drawRectangle(xCenter - 2.0f, yBase, xCenter + 2.0f, yBase + 85.0f, 0.50f, 0.50f, 0.50f);
     drawRectangle(xCenter - 7.0f, yBase + 60.0f, xCenter + 7.0f, yBase + 95.0f, 0.15f, 0.15f, 0.15f);
-    drawRectangle(xCenter - 2.5f, yBase + 82.0f, xCenter + 2.5f, yBase + 88.0f, 0.9f, 0.2f, 0.2f);
-    drawRectangle(xCenter - 2.5f, yBase + 68.0f, xCenter + 2.5f, yBase + 74.0f, 0.2f, 0.3f, 0.2f);
-}
 
-void drawLake() {
-    glColor3f(0.25f, 0.65f, 0.85f);
-    glBegin(GL_POLYGON);
-        glVertex2f(1080, 180);
-        glVertex2f(1280, 160);
-        glVertex2f(1280, 260);
-        glVertex2f(930,  260);
-    glEnd();
+    drawRectangle(xCenter - 2.5f, yBase + 82.0f, xCenter + 2.5f, yBase + 88.0f, 0.90f, 0.20f, 0.20f);
+    drawRectangle(xCenter - 2.5f, yBase + 68.0f, xCenter + 2.5f, yBase + 74.0f, 0.20f, 0.30f, 0.20f);
 }
 
 void drawRightRoadLamps() {
@@ -672,6 +635,8 @@ void drawFoliage() {
     drawBush(1150, 170, 40, 35, 0.13f, 0.35f, 0.13f);
 }
 
+// --- CORE APP LOGIC ---
+
 void init() {
     srand((unsigned int)time(NULL));
     glClearColor(1.0, 1.0, 1.0, 1.0);
@@ -683,11 +648,8 @@ void timer(int value) {
     // Expressway Cars
     for (int i = 0; i < NUM_CARS; i++) {
         cars[i].x += cars[i].speed * cars[i].dir;
-        if (cars[i].dir == -1 && cars[i].x < -100) {
-            cars[i].x = 1350;
-        } else if (cars[i].dir == 1 && cars[i].x > 1380) {
-            cars[i].x = -100;
-        }
+        if (cars[i].dir == -1 && cars[i].x < -100) cars[i].x = 1350;
+        else if (cars[i].dir == 1 && cars[i].x > 1380) cars[i].x = -100;
     }
 
     // Left Road Cars
@@ -712,7 +674,7 @@ void timer(int value) {
         }
     }
 
-    // 4. Single Train Controller
+    // Train Controller
     if (trainWaitTimer > 0.0f) {
         trainWaitTimer -= 0.03f;
         if (trainWaitTimer <= 0.0f) {
@@ -720,9 +682,9 @@ void timer(int value) {
             activeTrainApproaching = (activeTrainTrack >= 2);
 
             if (activeTrainApproaching) {
-                activeTrainT = -0.2f; // Start deep behind horizon
+                activeTrainT = -0.2f;
             } else {
-                activeTrainT = 1.5f; // Start off-screen foreground
+                activeTrainT = 1.5f;
             }
         }
     } else {
@@ -730,7 +692,7 @@ void timer(int value) {
             float tSpeed = (activeTrainT < 0.0f) ? 0.003f : (0.008f * (activeTrainT + 0.3f));
             activeTrainT += tSpeed;
 
-            if (activeTrainT - 0.65f > 1.2f) { // Train tail completely passed screen
+            if (activeTrainT - 0.65f > 1.2f) {
                 trainWaitTimer = getRandomFloat(2.0f, 10.0f);
             }
         } else {
@@ -738,7 +700,7 @@ void timer(int value) {
             if (tSpeed < 0.003f) tSpeed = 0.003f;
             activeTrainT -= tSpeed;
 
-            if (activeTrainT + 0.7f < 0.0f) { // Train tail completely passed horizon
+            if (activeTrainT + 0.7f < 0.0f) {
                 trainWaitTimer = getRandomFloat(2.0f, 10.0f);
             }
         }
@@ -762,9 +724,8 @@ void display() {
     drawAllTracks();
     drawTrackSignal();
 
-    // Draw the single active train
     if (trainWaitTimer <= 0.0f) {
-        drawBangladeshTrain(activeTrainTrack, activeTrainT, activeTrainApproaching);
+        drawTrain(activeTrainTrack, activeTrainT, activeTrainApproaching);
     }
 
     drawLeftScenery();
@@ -783,15 +744,16 @@ void display() {
 }
 
 int main(int argc, char **argv) {
-    srand((unsigned int)time(NULL));
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(1280, 720);
     glutCreateWindow("TrainTracks");
 
     init();
+
     glutDisplayFunc(display);
     glutTimerFunc(30, timer, 0);
+
     glutMainLoop();
 
     return 0;
