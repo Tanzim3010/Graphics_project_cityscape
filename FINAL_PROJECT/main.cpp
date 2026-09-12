@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-// --- ANIMATION SETUP ---
-
 // 1. Expressway Cars
 struct Car {
     float x;
@@ -56,18 +54,28 @@ RightRoadVehicle rightVehicles[NUM_RIGHT_VEHICLES] = {
     {0.9f, 0.010f, -1, 0, 0.2f, 0.3f,  0.8f}
 };
 
-// 4. Single Train Controller
+struct Cloud {
+    float x;
+    float y;
+    float speed;
+};
+
+Cloud clouds[3] = {
+    {100, 600, 1.0f},
+    {600, 550, 0.7f},
+    {1000, 650, 1.2f}
+};
+
 int activeTrainTrack = 0;
 bool activeTrainApproaching = false;
-float activeTrainT = 1.5f; // Start safely off-screen
-float trainWaitTimer = 2.0f; // Initial wait before first train spawns
+float activeTrainT = 1.5f;
+float trainWaitTimer = 2.0f;
 
 float getRandomFloat(float min, float max)
 {
     return min + ((float)rand() / (float)RAND_MAX) * (max - min);
 }
 
-// --- BASIC PRIMITIVES ---
 
 void drawRectangle(float x1, float y1, float x2, float y2, float r, float g, float b)
 {
@@ -108,7 +116,7 @@ void drawBush(float cx, float cy, float radiusX, float radiusY, float r, float g
     glPopMatrix();
 }
 
-// --- TRAIN PERSPECTIVE MATH ---
+//train perspective
 
 float getTrainX(float t, int track) {
     if (track == 0) return 390.0f * (1.0f - t) + 240.0f * t;
@@ -122,7 +130,7 @@ float getTrainY(float t) { return 300.0f * (1.0f - t); }
 float getTrainScale(float t) { return 0.25f + 0.75f * t; }
 
 void getTrainPoint(float t, float h_offset, float v_offset, int track, float &outX, float &outY) {
-    if (t < 0.01f) t = 0.01f; // Silent Fix: prevents 3D geometry from inverting at the horizon
+    if (t < 0.01f) t = 0.01f;
     float scale = getTrainScale(t);
     outX = getTrainX(t, track) + h_offset * scale;
     outY = getTrainY(t) + v_offset * scale;
@@ -162,15 +170,15 @@ void drawTrainRoofRect(float t_far, float t_near, float h_left, float h_right, f
     drawDistortedQuad(x1, y1, x2, y2, x3, y3, x4, y4, r, g, b);
 }
 
-// --- TRAIN CAR DESIGNS ---
+//train design
 
 void drawLocomotive(float t_far, float t_near, int track, bool isFacingViewer) {
     float hw = 40.0f;
     float h = 100.0f;
-    // FIXED: Tracks on the left (0,1) show the right face (+hw). Tracks on the right (2,3) show the left face (-hw).
+
     float side_hw = (track < 2) ? hw : -hw;
 
-    // FIXED (Z-SORTING): Draw solid far face first to prevent hollow optical illusion
+
     drawTrainFrontRect(t_far, -hw, hw, 2, h, 0.15f, 0.15f, 0.15f, track);
 
     // Side Faces
@@ -208,7 +216,6 @@ void drawCoach(float t_far, float t_near, int track, bool isLastCoach) {
     float h = 100.0f;
     float side_hw = (track < 2) ? hw : -hw;
 
-    // FIXED (Z-SORTING): Draw solid far face first to prevent hollow optical illusion
     drawTrainFrontRect(t_far, -hw, hw, 2, h, 0.15f, 0.15f, 0.15f, track);
 
     // Side Faces
@@ -268,7 +275,7 @@ void drawTrain(int track, float frontT, bool isApproaching) {
     }
 }
 
-// --- ROAD VEHICLE RENDERER (Simplified with Translate & Scale) ---
+
 
 void drawVehicleModel(int type, int dir, float r, float g, float b)
 {
@@ -279,7 +286,7 @@ void drawVehicleModel(int type, int dir, float r, float g, float b)
     // Drop shadow
     drawRectangle(-width/2 - 2, -4, width/2 + 2, 2, 0.40f, 0.40f, 0.42f);
 
-    // BUS MIRRORS (Drawn behind the main body layer, sticking out)
+    // bus mirrors
     if (type == 1)
     {
         drawRectangle(-width/2 - 8, 35, -width/2, 55, 0.15f, 0.15f, 0.15f); // Left Mirror
@@ -383,7 +390,23 @@ void drawRightRoadVehicles()
     }
 }
 
-// --- STATIC SCENERY ---
+
+void drawSun()
+{
+    drawRectangle(1050, 550, 1150, 650, 1.0f, 0.9f, 0.2f);
+}
+
+void drawClouds()
+{
+    for (int i = 0; i < 3; i++) {
+        float cx = clouds[i].x;
+        float cy = clouds[i].y;
+
+        drawRectangle(cx, cy, cx + 80, cy + 25, 1.0f, 1.0f, 1.0f);
+        drawRectangle(cx + 15, cy + 25, cx + 65, cy + 45, 1.0f, 1.0f, 1.0f);
+    }
+}
+
 
 void drawSky() { drawRectangle(0, 300, 1280, 720, 0.53f, 0.81f, 0.98f); }
 
@@ -400,6 +423,7 @@ void drawLake() {
 }
 
 void drawBackgroundBuildings() {
+
     drawRectangle(0,   300, 90,   410, 0.72f, 0.72f, 0.75f);
     drawRectangle(80,  300, 180,  380, 0.70f, 0.70f, 0.73f);
     drawRectangle(170, 300, 280,  440, 0.74f, 0.74f, 0.77f);
@@ -412,6 +436,35 @@ void drawBackgroundBuildings() {
     drawRectangle(910, 300, 1020, 410, 0.71f, 0.71f, 0.74f);
     drawRectangle(1010,300, 1140, 480, 0.73f, 0.73f, 0.76f);
     drawRectangle(1130,300, 1280, 400, 0.71f, 0.71f, 0.74f);
+
+
+
+    // Distant building
+    for (int y = 320; y < 460; y += 15) {
+        for (int x = 350; x < 460; x += 12) {
+            if ((x + y) % 5 != 0) {
+                drawRectangle(x, y, x + 4, y + 6, 0.9f, 0.9f, 0.6f);
+            }
+        }
+    }
+
+    // Mid-distance building
+    for (int y = 320; y < 430; y += 20) {
+        for (int x = 795; x < 910; x += 18) {
+            if ((x + y) % 4 != 0) {
+                drawRectangle(x, y, x + 6, y + 10, 0.9f, 0.9f, 0.6f);
+            }
+        }
+    }
+
+    // Close building
+    for (int y = 320; y < 370; y += 25) {
+        for (int x = 90; x < 170; x += 25) {
+            if ((x * y) % 3 != 0) {
+                drawRectangle(x, y, x + 10, y + 14, 0.9f, 0.9f, 0.6f);
+            }
+        }
+    }
 }
 
 void drawCars() {
@@ -499,27 +552,27 @@ void drawAllTracks() {
 void drawTunnels() {
     // Main concrete structure for the tunnels
     drawRectangle(350, 300, 655, 340, 0.60f, 0.60f, 0.63f);
-    drawRectangle(350, 340, 655, 345, 0.50f, 0.50f, 0.53f); // Top rim
+    drawRectangle(350, 340, 655, 345, 0.50f, 0.50f, 0.53f);
 
-    // Track 0 Tunnel (x = 390)
+    // Track 1 Tunnel
     drawRectangle(375, 300, 405, 330, 0.05f, 0.05f, 0.05f); // Black hole
     drawRectangle(372, 330, 408, 334, 0.45f, 0.45f, 0.48f); // Top frame
     drawRectangle(372, 300, 375, 334, 0.45f, 0.45f, 0.48f); // Left frame
     drawRectangle(405, 300, 408, 334, 0.45f, 0.45f, 0.48f); // Right frame
 
-    // Track 1 Tunnel (x = 465)
+    // Track 2 Tunnel
     drawRectangle(450, 300, 480, 330, 0.05f, 0.05f, 0.05f); // Black hole
     drawRectangle(447, 330, 483, 334, 0.45f, 0.45f, 0.48f); // Top frame
     drawRectangle(447, 300, 450, 334, 0.45f, 0.45f, 0.48f); // Left frame
     drawRectangle(480, 300, 483, 334, 0.45f, 0.45f, 0.48f); // Right frame
 
-    // Track 2 Tunnel (x = 540)
+    // Track 3 Tunnel
     drawRectangle(525, 300, 555, 330, 0.05f, 0.05f, 0.05f); // Black hole
     drawRectangle(522, 330, 558, 334, 0.45f, 0.45f, 0.48f); // Top frame
     drawRectangle(522, 300, 525, 334, 0.45f, 0.45f, 0.48f); // Left frame
     drawRectangle(555, 300, 558, 334, 0.45f, 0.45f, 0.48f); // Right frame
 
-    // Track 3 Tunnel (x = 615)
+    // Track 4 Tunnel
     drawRectangle(600, 300, 630, 330, 0.05f, 0.05f, 0.05f); // Black hole
     drawRectangle(597, 330, 633, 334, 0.45f, 0.45f, 0.48f); // Top frame
     drawRectangle(597, 300, 600, 334, 0.45f, 0.45f, 0.48f); // Left frame
@@ -668,7 +721,7 @@ void drawFoliage() {
     drawBush(905,  285, 15, 16, 0.12f, 0.33f, 0.12f);
     drawBush(890,  295, 12, 12, 0.13f, 0.35f, 0.13f);
 
-    // 6. Far Right Lake Area
+    // Far Right Lake Area
     drawBush(960, 290, 30, 20, 0.13f, 0.35f, 0.13f);
     drawBush(1050, 285, 40, 25, 0.15f, 0.38f, 0.15f);
     drawBush(1150, 280, 45, 30, 0.16f, 0.39f, 0.16f);
@@ -684,7 +737,7 @@ void drawFoliage() {
     drawBush(1150, 170, 40, 35, 0.13f, 0.35f, 0.13f);
 }
 
-// --- CORE APP LOGIC ---
+
 
 void init() {
     srand((unsigned int)time(NULL));
@@ -694,6 +747,16 @@ void init() {
 }
 
 void timer(int value) {
+
+    //clouds
+    for (int i = 0; i < 3; i++) {
+        clouds[i].x += clouds[i].speed;
+        if (clouds[i].x > 1300) {
+            clouds[i].x = -100;
+        }
+    }
+
+
     // Expressway Cars
     for (int i = 0; i < NUM_CARS; i++) {
         cars[i].x += cars[i].speed * cars[i].dir;
@@ -763,6 +826,9 @@ void display() {
     glClear(GL_COLOR_BUFFER_BIT);
 
     drawSky();
+    drawSun();
+    drawClouds();
+
     drawBackgroundBuildings();
     drawElevatedHighway();
 
@@ -772,11 +838,8 @@ void display() {
 
     drawAllTracks();
     drawTrackSignal();
-
-    // Tunnel drawn AFTER tracks, BEFORE trains
     drawTunnels();
 
-    // Draw the single active train
     if (trainWaitTimer <= 0.0f) {
         drawTrain(activeTrainTrack, activeTrainT, activeTrainApproaching);
     }
