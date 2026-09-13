@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+
 // 1. Expressway Cars
 struct Car {
     float x;
@@ -60,22 +61,27 @@ struct Cloud {
     float speed;
 };
 
-Cloud clouds[3] = {
+Cloud train_clouds[3] = {
     {100, 600, 1.0f},
     {600, 550, 0.7f},
     {1000, 650, 1.2f}
 };
 
+// 4. Single Train Controller
 int activeTrainTrack = 0;
 bool activeTrainApproaching = false;
 float activeTrainT = 1.5f;
-float trainWaitTimer = 2.0f;
+float trainWaitTimer = 2.0f; // Initial wait before first train spawns
+
+
+bool isNight = false;
 
 float getRandomFloat(float min, float max)
 {
     return min + ((float)rand() / (float)RAND_MAX) * (max - min);
 }
 
+//basics
 
 void drawRectangle(float x1, float y1, float x2, float y2, float r, float g, float b)
 {
@@ -216,6 +222,7 @@ void drawCoach(float t_far, float t_near, int track, bool isLastCoach) {
     float h = 100.0f;
     float side_hw = (track < 2) ? hw : -hw;
 
+
     drawTrainFrontRect(t_far, -hw, hw, 2, h, 0.15f, 0.15f, 0.15f, track);
 
     // Side Faces
@@ -275,140 +282,139 @@ void drawTrain(int track, float frontT, bool isApproaching) {
     }
 }
 
-
-
-void drawVehicleModel(int type, int dir, float r, float g, float b)
-{
-    float width = (type == 1) ? 65.0f : 60.0f;
-    float height = (type == 1) ? 80.0f : 24.0f;
-    float roof = (type == 1) ? 0.0f : 16.0f;
-
-    // Drop shadow
-    drawRectangle(-width/2 - 2, -4, width/2 + 2, 2, 0.40f, 0.40f, 0.42f);
-
-    // bus mirrors
-    if (type == 1)
-    {
-        drawRectangle(-width/2 - 8, 35, -width/2, 55, 0.15f, 0.15f, 0.15f); // Left Mirror
-        drawRectangle(width/2, 35, width/2 + 8, 55, 0.15f, 0.15f, 0.15f);   // Right Mirror
-    }
-
-    // Main Body
-    drawRectangle(-width/2, 0, width/2, height, r, g, b);
-
-    if (dir == 1)
-    {
-        if (type == 1) // Bus Back
-        {
-            drawRectangle(-width/2, 0, width/2, 10, 0.15f, 0.15f, 0.15f); // Bumper
-            drawRectangle(-width/2 + 8, 30, width/2 - 8, height - 25, 0.20f, 0.20f, 0.25f); // Rear Window
-
-            // Taillights
-            drawRectangle(-width/2 + 6, 12, -width/2 + 20, 20, 0.90f, 0.15f, 0.15f);
-            drawRectangle(width/2 - 20, 12, width/2 - 6, 20, 0.90f, 0.15f, 0.15f);
-
-            // Top Sign (Backwards facing)
-            drawRectangle(-width/2 + 15, height - 20, width/2 - 15, height - 8, 0.10f, 0.10f, 0.10f);
-        }
-        else // Car Back
-        {
-            drawRectangle(-width/2 + 8, height, width/2 - 8, height + roof, 0.20f, 0.20f, 0.25f);
-            drawRectangle(-width/2 + 2, 6, -width/2 + 14, 10, 1.00f, 0.00f, 0.00f);
-            drawRectangle(width/2 - 14, 6, width/2 - 2, 10, 1.00f, 0.00f, 0.00f);
-        }
-    }
-    else
-    {
-        if (type == 1) // Bus Front
-        {
-            drawRectangle(-width/2, 0, width/2, 10, 0.15f, 0.15f, 0.15f); // Bumper
-
-            // Large Windshield
-            drawRectangle(-width/2 + 6, 30, width/2 - 6, height - 25, 0.60f, 0.80f, 0.90f);
-
-            // Yellow Headlights
-            drawRectangle(-width/2 + 8, 14, -width/2 + 22, 22, 1.00f, 0.90f, 0.60f);
-            drawRectangle(width/2 - 22, 14, width/2 - 8, 22, 1.00f, 0.90f, 0.60f);
-
-            // Illuminated Top Sign
-            drawRectangle(-width/2 + 15, height - 20, width/2 - 15, height - 8, 0.10f, 0.10f, 0.10f); // Sign border
-            drawRectangle(-width/2 + 17, height - 18, width/2 - 17, height - 10, 1.00f, 0.80f, 0.10f); // Sign light
-        }
-        else // Car Front
-        {
-            drawRectangle(-width/2 + 6, height, width/2 - 6, height + roof, 0.60f, 0.80f, 0.90f);
-            drawRectangle(-width/2 + 2, 8, -width/2 + 14, 14, 1.00f, 0.90f, 0.60f);
-            drawRectangle(width/2 - 14, 8, width/2 - 2, 14, 1.00f, 0.90f, 0.60f);
-            drawRectangle(-10, 4, 10, 10, 0.15f, 0.15f, 0.15f);
-        }
-    }
-}
-
-void drawLeftRoadCars()
-{
-    for(int pass = 0; pass < 2; pass++)
-    {
-        for(int i = 0; i < NUM_LEFT_CARS; i++)
-        {
+void drawLeftRoadCars() {
+    for(int pass = 0; pass < 2; pass++) {
+        for(int i = 0; i < NUM_LEFT_CARS; i++) {
             float t = leftCars[i].t;
             if(t < 0.0f || t > 1.2f) continue;
             if ((pass == 0 && t > 0.5f) || (pass == 1 && t <= 0.5f)) continue;
 
             float scale = 0.25f + 0.75f * t;
-            float cy = 300.0f * (1.0f - t);
-            float cx = (leftCars[i].dir == 1) ? (210.0f * (1.0f - t) + 60.0f * t) : (170.0f * (1.0f - t) - 40.0f * t);
+            float cx, cy;
+            cy = 300.0f * (1.0f - t);
 
-            glPushMatrix();
-            glTranslatef(cx, cy, 0.0f);
-            glScalef(scale, scale, 1.0f);
-            drawVehicleModel(0, leftCars[i].dir, leftCars[i].r, leftCars[i].g, leftCars[i].b);
-            glPopMatrix();
+            if (leftCars[i].dir == 1) {
+                cx = 210.0f * (1.0f - t) + 60.0f * t;
+            } else {
+                cx = 170.0f * (1.0f - t) + (-40.0f) * t;
+            }
+
+            float width = 60.0f * scale;
+            float height = 24.0f * scale;
+            float roof = 16.0f * scale;
+
+            drawRectangle(cx - width/2 - 2*scale, cy - 4*scale, cx + width/2 + 2*scale, cy + 2*scale, 0.4f, 0.4f, 0.42f);
+            drawRectangle(cx - width/2, cy, cx + width/2, cy + height, leftCars[i].r, leftCars[i].g, leftCars[i].b);
+
+            if (leftCars[i].dir == 1) {
+                drawRectangle(cx - width/2 + 8*scale, cy + height, cx + width/2 - 8*scale, cy + height + roof, 0.2f, 0.2f, 0.25f);
+                drawRectangle(cx - width/2 + 2*scale, cy + 6*scale, cx - width/2 + 14*scale, cy + 10*scale, 1.0f, 0.0f, 0.0f);
+                drawRectangle(cx + width/2 - 14*scale, cy + 6*scale, cx + width/2 - 2*scale, cy + 10*scale, 1.0f, 0.0f, 0.0f);
+            } else {
+                drawRectangle(cx - width/2 + 6*scale, cy + height, cx + width/2 - 6*scale, cy + height + roof, 0.6f, 0.8f, 0.9f);
+                drawRectangle(cx - width/2 + 2*scale, cy + 8*scale, cx - width/2 + 14*scale, cy + 14*scale, 1.0f, 0.9f, 0.6f);
+                drawRectangle(cx + width/2 - 14*scale, cy + 8*scale, cx + width/2 - 2*scale, cy + 14*scale, 1.0f, 0.9f, 0.6f);
+                drawRectangle(cx - 10*scale, cy + 4*scale, cx + 10*scale, cy + 10*scale, 0.15f, 0.15f, 0.15f);
+            }
         }
     }
 }
 
-void drawRightRoadVehicles()
-{
-    for(int pass = 0; pass < 2; pass++)
-    {
-        for(int i = 0; i < NUM_RIGHT_VEHICLES; i++)
-        {
+void drawRightRoadVehicles() {
+    for(int pass = 0; pass < 2; pass++) {
+        for(int i = 0; i < NUM_RIGHT_VEHICLES; i++) {
             float t = rightVehicles[i].t;
             if(t < 0.0f || t > 1.2f) continue;
             if ((pass == 0 && t > 0.5f) || (pass == 1 && t <= 0.5f)) continue;
 
             float scale = 0.25f + 0.80f * t;
-            float cy = 300.0f * (1.0f - t);
-            float cx = (rightVehicles[i].dir == 1) ? (750.0f * (1.0f - t) + 1060.0f * t) : (800.0f * (1.0f - t) + 1190.0f * t);
+            float cx, cy;
+            cy = 300.0f * (1.0f - t);
 
-            glPushMatrix();
-            glTranslatef(cx, cy, 0.0f);
-            glScalef(scale, scale, 1.0f);
-            drawVehicleModel(rightVehicles[i].type, rightVehicles[i].dir, rightVehicles[i].r, rightVehicles[i].g, rightVehicles[i].b);
-            glPopMatrix();
+            if (rightVehicles[i].dir == 1) {
+                cx = 750.0f * (1.0f - t) + 1060.0f * t;
+            } else {
+                cx = 800.0f * (1.0f - t) + 1190.0f * t;
+            }
+
+            float width, height, roof;
+            if (rightVehicles[i].type == 1) {
+                width = 65.0f * scale;
+                height = 80.0f * scale;
+                roof = 0.0f;
+            } else {
+                width = 65.0f * scale;
+                height = 26.0f * scale;
+                roof = 18.0f * scale;
+            }
+
+            drawRectangle(cx - width/2 - 2*scale, cy - 4*scale, cx + width/2 + 2*scale, cy + 2*scale, 0.4f, 0.4f, 0.42f);
+            drawRectangle(cx - width/2, cy, cx + width/2, cy + height, rightVehicles[i].r, rightVehicles[i].g, rightVehicles[i].b);
+
+            if (rightVehicles[i].dir == 1) {
+                if (rightVehicles[i].type == 1) {
+                    drawRectangle(cx - width/2, cy, cx + width/2, cy + 10*scale, 0.15f, 0.15f, 0.15f);
+                    drawRectangle(cx - width/2 + 15*scale, cy + 15*scale, cx + width/2 - 15*scale, cy + 35*scale, 0.2f, 0.2f, 0.2f);
+                    drawRectangle(cx - width/2 + 8*scale, cy + 40*scale, cx + width/2 - 8*scale, cy + height - 15*scale, 0.2f, 0.2f, 0.25f);
+                    drawRectangle(cx - width/2 + 15*scale, cy + height - 12*scale, cx + width/2 - 15*scale, cy + height - 4*scale, 0.1f, 0.1f, 0.1f);
+                    drawRectangle(cx - width/2 + 4*scale, cy + 15*scale, cx - width/2 + 12*scale, cy + 30*scale, 1.0f, 0.0f, 0.0f);
+                    drawRectangle(cx + width/2 - 12*scale, cy + 15*scale, cx + width/2 - 4*scale, cy + 30*scale, 1.0f, 0.0f, 0.0f);
+                } else {
+                    drawRectangle(cx - width/2 + 8*scale, cy + height, cx + width/2 - 8*scale, cy + height + roof, 0.2f, 0.2f, 0.25f);
+                    drawRectangle(cx - width/2 + 2*scale, cy + 6*scale, cx - width/2 + 14*scale, cy + 10*scale, 1.0f, 0.0f, 0.0f);
+                    drawRectangle(cx + width/2 - 14*scale, cy + 6*scale, cx + width/2 - 2*scale, cy + 10*scale, 1.0f, 0.0f, 0.0f);
+                }
+            } else {
+                if (rightVehicles[i].type == 1) {
+                    drawRectangle(cx - width/2, cy, cx + width/2, cy + 10*scale, 0.15f, 0.15f, 0.15f);
+                    drawRectangle(cx - width/2 + 5*scale, cy + 30*scale, cx + width/2 - 5*scale, cy + height - 15*scale, 0.6f, 0.8f, 0.9f);
+                    drawRectangle(cx - width/2 + 10*scale, cy + height - 12*scale, cx + width/2 - 10*scale, cy + height - 3*scale, 0.1f, 0.1f, 0.1f);
+                    drawRectangle(cx - width/2 + 14*scale, cy + height - 10*scale, cx + width/2 - 14*scale, cy + height - 5*scale, 1.0f, 0.8f, 0.1f);
+                    drawRectangle(cx - width/2 + 6*scale, cy + 14*scale, cx - width/2 + 20*scale, cy + 22*scale, 1.0f, 0.9f, 0.6f);
+                    drawRectangle(cx + width/2 - 20*scale, cy + 14*scale, cx + width/2 - 6*scale, cy + 22*scale, 1.0f, 0.9f, 0.6f);
+                    drawRectangle(cx - width/2 - 6*scale, cy + 35*scale, cx - width/2, cy + 55*scale, 0.1f, 0.1f, 0.1f);
+                    drawRectangle(cx + width/2, cy + 35*scale, cx + width/2 + 6*scale, cy + 55*scale, 0.1f, 0.1f, 0.1f);
+                } else {
+                    drawRectangle(cx - width/2 + 6*scale, cy + height, cx + width/2 - 6*scale, cy + height + roof, 0.6f, 0.8f, 0.9f);
+                    drawRectangle(cx - width/2 + 2*scale, cy + 8*scale, cx - width/2 + 14*scale, cy + 14*scale, 1.0f, 0.9f, 0.6f);
+                    drawRectangle(cx + width/2 - 14*scale, cy + 8*scale, cx + width/2 - 2*scale, cy + 14*scale, 1.0f, 0.9f, 0.6f);
+                    drawRectangle(cx - 10*scale, cy + 4*scale, cx + 10*scale, cy + 10*scale, 0.15f, 0.15f, 0.15f);
+                }
+            }
         }
     }
 }
 
+// --- STATIC SCENERY ---
 
-void drawSun()
-{
-    drawRectangle(1050, 550, 1150, 650, 1.0f, 0.9f, 0.2f);
-}
-
-void drawClouds()
-{
-    for (int i = 0; i < 3; i++) {
-        float cx = clouds[i].x;
-        float cy = clouds[i].y;
-
-        drawRectangle(cx, cy, cx + 80, cy + 25, 1.0f, 1.0f, 1.0f);
-        drawRectangle(cx + 15, cy + 25, cx + 65, cy + 45, 1.0f, 1.0f, 1.0f);
+void drawSunMoon() {
+    if (isNight) {
+        drawRectangle(1050, 550, 1100, 600, 0.9f, 0.9f, 0.9f); // Moon
+    } else {
+        drawRectangle(1050, 550, 1150, 650, 1.0f, 0.9f, 0.2f); // Sun
     }
 }
 
+void drawClouds() {
+    float r = isNight ? 0.4f : 1.0f;
+    float g = isNight ? 0.4f : 1.0f;
+    float b = isNight ? 0.5f : 1.0f;
 
-void drawSky() { drawRectangle(0, 300, 1280, 720, 0.53f, 0.81f, 0.98f); }
+    for (int i = 0; i < 3; i++) {
+        float cx = train_clouds[i].x;
+        float cy = train_clouds[i].y;
+        drawRectangle(cx, cy, cx + 80, cy + 25, r, g, b);
+        drawRectangle(cx + 15, cy + 25, cx + 65, cy + 45, r, g, b);
+    }
+}
+
+void drawSky() {
+    if (isNight) {
+        drawRectangle(0, 300, 1280, 720, 0.05f, 0.05f, 0.15f);
+    } else {
+        drawRectangle(0, 300, 1280, 720, 0.53f, 0.81f, 0.98f);
+    }
+}
 
 void drawGround() { drawRectangle(0, 0, 1280, 300, 0.32f, 0.65f, 0.25f); }
 
@@ -543,16 +549,16 @@ void drawStraightTrack(float startX, float endX)
 }
 
 void drawAllTracks() {
-    drawStraightTrack(240, 390); // Track 0
-    drawStraightTrack(430, 465); // Track 1
-    drawStraightTrack(620, 540); // Track 2
-    drawStraightTrack(810, 615); // Track 3
+    drawStraightTrack(240, 390); // Track 1
+    drawStraightTrack(430, 465); // Track 2
+    drawStraightTrack(620, 540); // Track 3
+    drawStraightTrack(810, 615); // Track 4
 }
 
 void drawTunnels() {
     // Main concrete structure for the tunnels
     drawRectangle(350, 300, 655, 340, 0.60f, 0.60f, 0.63f);
-    drawRectangle(350, 340, 655, 345, 0.50f, 0.50f, 0.53f);
+    drawRectangle(350, 340, 655, 345, 0.50f, 0.50f, 0.53f); // Top rim
 
     // Track 1 Tunnel
     drawRectangle(375, 300, 405, 330, 0.05f, 0.05f, 0.05f); // Black hole
@@ -737,22 +743,59 @@ void drawFoliage() {
     drawBush(1150, 170, 40, 35, 0.13f, 0.35f, 0.13f);
 }
 
-
-
-void init() {
-    srand((unsigned int)time(NULL));
-    glClearColor(1.0, 1.0, 1.0, 1.0);
-    glPointSize(5);
-    gluOrtho2D(0, 1280, 0, 720);
+// Local keyboard handler
+void keyboard1(unsigned char key, int x, int y) {
+    if (key == 'd' || key == 'D') {
+        isNight = false;
+    } else if (key == 'n' || key == 'N') {
+        isNight = true;
+    }
 }
 
-void timer(int value) {
+void display1() {
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    drawSky();
+    drawSunMoon();
+    drawClouds();
+
+    drawBackgroundBuildings();
+    drawElevatedHighway();
+
+    drawGround();
+    drawRoads();
+    drawGravelBed();
+
+    drawAllTracks();
+    drawTrackSignal();
+    drawTunnels();
+
+    if (trainWaitTimer <= 0.0f) {
+        drawTrain(activeTrainTrack, activeTrainT, activeTrainApproaching);
+    }
+
+    drawLeftScenery();
+
+    drawLeftRoadCars();
+    drawRightRoadVehicles();
+
+    drawLake();
+
+    drawRightRoadLamps();
+    drawLeftRoadLamps();
+
+    drawFoliage();
+
+    glutSwapBuffers();
+}
+
+void timer1(int value) {
 
     //clouds
     for (int i = 0; i < 3; i++) {
-        clouds[i].x += clouds[i].speed;
-        if (clouds[i].x > 1300) {
-            clouds[i].x = -100;
+        train_clouds[i].x += train_clouds[i].speed;
+        if (train_clouds[i].x > 1300) {
+            train_clouds[i].x = -100;
         }
     }
 
@@ -819,56 +862,30 @@ void timer(int value) {
     }
 
     glutPostRedisplay();
-    glutTimerFunc(30, timer, 0);
+    glutTimerFunc(30, timer1, 0);
 }
 
-void display() {
-    glClear(GL_COLOR_BUFFER_BIT);
 
-    drawSky();
-    drawSun();
-    drawClouds();
-
-    drawBackgroundBuildings();
-    drawElevatedHighway();
-
-    drawGround();
-    drawRoads();
-    drawGravelBed();
-
-    drawAllTracks();
-    drawTrackSignal();
-    drawTunnels();
-
-    if (trainWaitTimer <= 0.0f) {
-        drawTrain(activeTrainTrack, activeTrainT, activeTrainApproaching);
-    }
-
-    drawLeftScenery();
-
-    drawLeftRoadCars();
-    drawRightRoadVehicles();
-
-    drawLake();
-
-    drawRightRoadLamps();
-    drawLeftRoadLamps();
-
-    drawFoliage();
-
-    glutSwapBuffers();
+void init() {
+    srand((unsigned int)time(NULL));
+    glClearColor(1.0, 1.0, 1.0, 1.0);
+    glPointSize(5);
+    gluOrtho2D(0, 1280, 0, 720);
 }
 
 int main(int argc, char **argv) {
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
     glutInitWindowSize(1280, 720);
-    glutCreateWindow("TrainTracks");
+    glutInitWindowPosition(100, 100);
+    glutCreateWindow("TrainScene");
 
     init();
 
-    glutDisplayFunc(display);
-    glutTimerFunc(30, timer, 0);
+    glutDisplayFunc(display1);
+    glutKeyboardFunc(keyboard1);
+    glutTimerFunc(30, timer1, 0);
+
 
     glutMainLoop();
 
